@@ -1,0 +1,22 @@
+{
+  "id": "file-explorer",
+  "name": "File Explorer",
+  "version": "1.0.0",
+  "description": "Explorateur de fichiers natif — navigation, création, suppression. Niveau L1 suffisant.",
+  "author": "Axiom Core Team",
+  "clearance_level": 1,
+  "entry_point": "plugin.so",
+  "ui_slots": ["sidebar"],
+  "subscriptions": [
+    "file.created",
+    "file.deleted",
+    "system.ready"
+  ],
+  "capabilities": [
+    "read_files",
+    "create_files",
+    "write_files",
+    "delete_files"
+  ],
+  "enabled": true
+}

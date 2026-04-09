@@ -1,0 +1,20 @@
+{
+  "id": "theme-manager",
+  "name": "Theme Manager",
+  "version": "1.0.0",
+  "description": "Gestion des thèmes visuels d'Axiom. Niveau L2 pour modifier l'interface.",
+  "author": "Axiom Core Team",
+  "clearance_level": 2,
+  "entry_point": "plugin.so",
+  "ui_slots": ["toolbar"],
+  "subscriptions": [
+    "ui.theme.set",
+    "system.ready"
+  ],
+  "capabilities": [
+    "set_theme",
+    "open_panel",
+    "close_panel"
+  ],
+  "enabled": true
+}

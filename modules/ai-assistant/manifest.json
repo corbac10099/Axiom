@@ -1,0 +1,24 @@
+{
+  "id": "ai-assistant",
+  "name": "AI Assistant (Mistral Local)",
+  "version": "1.0.0",
+  "description": "Module IA local basé sur Mistral 7B. Analyse le code, propose des refactors, génère des fichiers et peut modifier l'interface.",
+  "author": "Axiom Core Team",
+  "clearance_level": 2,
+  "entry_point": "plugin.so",
+  "ui_slots": ["bottom_panel", "sidebar"],
+  "subscriptions": [
+    "file.opened",
+    "ai.response",
+    "system.ready"
+  ],
+  "capabilities": [
+    "read_files",
+    "create_files",
+    "write_files",
+    "set_theme",
+    "open_panel",
+    "close_panel"
+  ],
+  "enabled": true
+}
