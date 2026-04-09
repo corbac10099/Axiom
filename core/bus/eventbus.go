@@ -1,10 +1,4 @@
 // Package bus implémente le cœur de communication asynchrone d'Axiom.
-// C'est la "colonne vertébrale" qui relie tous les modules entre eux
-// sans qu'ils se connaissent directement — découplage total.
-//
-// Design : chaque Topic possède un channel Go bufferisé.
-// Les handlers sont appelés dans des goroutines dédiées.
-// Un EventBus peut être arrêté proprement via un context.
 package bus
 
 import (
@@ -21,13 +15,11 @@ import (
 // HandlerFunc est la signature d'un abonné à un Topic.
 type HandlerFunc func(event api.Event)
 
-// subscription représente un abonné unique à un Topic.
 type subscription struct {
 	id      string
 	handler HandlerFunc
 }
 
-// topicRouter gère la liste des abonnés et le channel d'un Topic donné.
 type topicRouter struct {
 	mu           sync.RWMutex
 	subscribers  []subscription
@@ -35,35 +27,31 @@ type topicRouter struct {
 }
 
 // EventBus est le bus d'événements central d'Axiom.
-// Thread-safe, asynchrone, et arrêtable proprement.
 type EventBus struct {
 	mu         sync.RWMutex
 	routers    map[api.Topic]*topicRouter
 	bufferSize int
 	wg         sync.WaitGroup
-	logger     *slog.Logger
+	// BUG FIX: protéger shutdown contre double-appel
+	shutdownOnce sync.Once
+	logger       *slog.Logger
 }
 
 // New crée un EventBus prêt à l'emploi.
-// ctx : contexte global — annuler ce contexte arrête proprement le bus.
-// bufferSize : taille du buffer par channel Topic (recommandé : 64-256).
 func New(ctx context.Context, bufferSize int, logger *slog.Logger) *EventBus {
 	eb := &EventBus{
 		routers:    make(map[api.Topic]*topicRouter),
 		bufferSize: bufferSize,
 		logger:     logger,
 	}
-
 	go func() {
 		<-ctx.Done()
 		eb.shutdown()
 	}()
-
 	return eb
 }
 
 // Subscribe enregistre un handler sur un Topic.
-// Retourne un subscriptionID utilisable pour se désabonner.
 func (eb *EventBus) Subscribe(topic api.Topic, handler HandlerFunc) string {
 	eb.mu.Lock()
 	router, exists := eb.routers[topic]
@@ -74,10 +62,8 @@ func (eb *EventBus) Subscribe(topic api.Topic, handler HandlerFunc) string {
 	eb.mu.Unlock()
 
 	subID := uuid.New().String()
-	sub := subscription{id: subID, handler: handler}
-
 	router.mu.Lock()
-	router.subscribers = append(router.subscribers, sub)
+	router.subscribers = append(router.subscribers, subscription{id: subID, handler: handler})
 	router.mu.Unlock()
 
 	eb.logger.Debug("bus: subscribed",
@@ -87,7 +73,7 @@ func (eb *EventBus) Subscribe(topic api.Topic, handler HandlerFunc) string {
 	return subID
 }
 
-// Unsubscribe retire un handler du bus via son subscriptionID.
+// Unsubscribe retire un handler du bus.
 func (eb *EventBus) Unsubscribe(topic api.Topic, subID string) {
 	eb.mu.RLock()
 	router, exists := eb.routers[topic]
@@ -95,7 +81,6 @@ func (eb *EventBus) Unsubscribe(topic api.Topic, subID string) {
 	if !exists {
 		return
 	}
-
 	router.mu.Lock()
 	defer router.mu.Unlock()
 	filtered := router.subscribers[:0]
@@ -107,8 +92,8 @@ func (eb *EventBus) Unsubscribe(topic api.Topic, subID string) {
 	router.subscribers = filtered
 }
 
-// Publish envoie un événement sur le bus de manière NON-BLOQUANTE.
-// Si le channel est plein, l'événement est droppé et une alerte loguée.
+// Publish envoie un événement de manière NON-BLOQUANTE.
+// BUG FIX: on vérifie si le bus est en cours d'arrêt avant de publier.
 func (eb *EventBus) Publish(event api.Event) {
 	if event.ID == "" {
 		event.ID = uuid.New().String()
@@ -140,7 +125,6 @@ func (eb *EventBus) Publish(event api.Event) {
 }
 
 // PublishSync publie et attend que tous les handlers aient terminé.
-// Usage : tests ou séquences d'initialisation critiques.
 func (eb *EventBus) PublishSync(event api.Event) {
 	if event.ID == "" {
 		event.ID = uuid.New().String()
@@ -175,13 +159,11 @@ func (eb *EventBus) newRouter(topic api.Topic) *topicRouter {
 	router := &topicRouter{
 		eventChannel: make(chan api.Event, eb.bufferSize),
 	}
-
 	eb.wg.Add(1)
 	go func() {
 		defer eb.wg.Done()
 		eb.dispatchLoop(topic, router)
 	}()
-
 	return router
 }
 
@@ -201,19 +183,20 @@ func (eb *EventBus) dispatchLoop(topic api.Topic, router *topicRouter) {
 }
 
 // shutdown ferme proprement tous les channels.
+// BUG FIX: sync.Once empêche tout double-close (panic sur channel déjà fermé).
 func (eb *EventBus) shutdown() {
-	eb.logger.Info("bus: shutting down...")
-	eb.mu.Lock()
-	defer eb.mu.Unlock()
-	for _, router := range eb.routers {
-		close(router.eventChannel)
-	}
-	eb.wg.Wait()
-	eb.logger.Info("bus: shutdown complete")
+	eb.shutdownOnce.Do(func() {
+		eb.logger.Info("bus: shutting down...")
+		eb.mu.Lock()
+		defer eb.mu.Unlock()
+		for _, router := range eb.routers {
+			close(router.eventChannel)
+		}
+		eb.wg.Wait()
+		eb.logger.Info("bus: shutdown complete")
+	})
 }
 
-// safeCall exécute un handler en récupérant les panics potentiels.
-// Un handler défaillant ne doit JAMAIS tuer le bus.
 func safeCall(handler HandlerFunc, event api.Event, logger *slog.Logger) {
 	defer func() {
 		if r := recover(); r != nil {

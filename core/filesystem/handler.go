@@ -1,14 +1,8 @@
 // Package filesystem implémente le gestionnaire de fichiers d'Axiom.
-// Il s'abonne aux Topics FILE_* du bus et effectue les opérations réelles
-// sur le système de fichiers de l'OS, en respectant le workspace configuré.
-//
 // Sécurité additionnelle : path traversal prevention.
-// Toute tentative d'accès hors du workspace est bloquée, même si le
-// Security Manager a autorisé l'action au niveau clearance.
 package filesystem
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -18,22 +12,16 @@ import (
 	"time"
 
 	"github.com/axiom-ide/axiom/api"
-	"github.com/axiom-ide/axiom/core/bus"
 	"github.com/axiom-ide/axiom/pkg/uid"
 )
 
-// ─────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────
-
 // FileEntry est la description d'un fichier ou dossier dans le workspace.
 type FileEntry struct {
-	Path     string    `json:"path"`
-	Name     string    `json:"name"`
-	IsDir    bool      `json:"is_dir"`
-	Size     int64     `json:"size"`
-	ModTime  time.Time `json:"mod_time"`
-	MimeType string    `json:"mime_type,omitempty"`
+	Path    string    `json:"path"`
+	Name    string    `json:"name"`
+	IsDir   bool      `json:"is_dir"`
+	Size    int64     `json:"size"`
+	ModTime time.Time `json:"mod_time"`
 }
 
 // ReadResult est le résultat d'une opération de lecture.
@@ -50,22 +38,19 @@ type OperationResult struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// ─────────────────────────────────────────────
-// HANDLER
-// ─────────────────────────────────────────────
-
 // Handler s'abonne aux Topics FILE_* du bus et opère sur le FS réel.
-// Il est le seul composant d'Axiom autorisé à toucher le disque directement.
+// BUG FIX: prend EventPublisher (interface) au lieu de *bus.EventBus (concret).
 type Handler struct {
-	mu           sync.RWMutex
-	workspaceDir string  // racine absolue du workspace (anti path-traversal)
-	maxFileSizeMB int
+	mu             sync.RWMutex
+	workspaceDir   string
+	maxFileSizeMB  int
 	ignorePatterns []string
-	backupOnWrite bool
+	backupOnWrite  bool
 
-	bus    *bus.EventBus
+	// BUG FIX: utilise l'interface, pas le type concret
+	bus    EventPublisher
 	logger *slog.Logger
-	subIDs []string // pour cleanup
+	subIDs []string
 }
 
 // Config regroupe les paramètres du FileSystem Handler.
@@ -77,8 +62,8 @@ type Config struct {
 }
 
 // NewHandler crée un Handler et l'attache au bus.
-func NewHandler(cfg Config, eventBus *bus.EventBus, logger *slog.Logger) (*Handler, error) {
-	// Résoudre le workspace en chemin absolu pour l'anti-traversal
+// BUG FIX: prend EventPublisher au lieu de *bus.EventBus.
+func NewHandler(cfg Config, eventBus EventPublisher, logger *slog.Logger) (*Handler, error) {
 	abs, err := filepath.Abs(cfg.WorkspaceDir)
 	if err != nil {
 		return nil, fmt.Errorf("filesystem: cannot resolve workspace path '%s': %w", cfg.WorkspaceDir, err)
@@ -86,12 +71,10 @@ func NewHandler(cfg Config, eventBus *bus.EventBus, logger *slog.Logger) (*Handl
 	if err := os.MkdirAll(abs, 0755); err != nil {
 		return nil, fmt.Errorf("filesystem: cannot create workspace '%s': %w", abs, err)
 	}
-
 	maxMB := cfg.MaxFileSizeMB
 	if maxMB <= 0 {
 		maxMB = 50
 	}
-
 	h := &Handler{
 		workspaceDir:   abs,
 		maxFileSizeMB:  maxMB,
@@ -100,7 +83,6 @@ func NewHandler(cfg Config, eventBus *bus.EventBus, logger *slog.Logger) (*Handl
 		bus:            eventBus,
 		logger:         logger,
 	}
-
 	h.subscribeToEvents()
 	logger.Info("filesystem: handler ready", slog.String("workspace", abs))
 	return h, nil
@@ -126,17 +108,12 @@ func (h *Handler) SetWorkspace(dir string) error {
 	return nil
 }
 
-// ─────────────────────────────────────────────
-// OPÉRATIONS FICHIERS
-// ─────────────────────────────────────────────
-
 // ReadFile lit le contenu d'un fichier dans le workspace.
 func (h *Handler) ReadFile(relPath string) (ReadResult, error) {
 	absPath, err := h.safePath(relPath)
 	if err != nil {
 		return ReadResult{}, err
 	}
-
 	info, err := os.Stat(absPath)
 	if err != nil {
 		return ReadResult{}, fmt.Errorf("filesystem: cannot stat '%s': %w", relPath, err)
@@ -144,18 +121,15 @@ func (h *Handler) ReadFile(relPath string) (ReadResult, error) {
 	if info.IsDir() {
 		return ReadResult{}, fmt.Errorf("filesystem: '%s' is a directory", relPath)
 	}
-
 	maxBytes := int64(h.maxFileSizeMB) * 1024 * 1024
 	if info.Size() > maxBytes {
 		return ReadResult{}, fmt.Errorf("filesystem: file '%s' too large (%d MB > %d MB limit)",
 			relPath, info.Size()/1024/1024, h.maxFileSizeMB)
 	}
-
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		return ReadResult{}, fmt.Errorf("filesystem: cannot read '%s': %w", relPath, err)
 	}
-
 	return ReadResult{Path: relPath, Content: string(data), Size: info.Size()}, nil
 }
 
@@ -165,38 +139,30 @@ func (h *Handler) WriteFile(relPath, content string, appendMode bool) error {
 	if err != nil {
 		return err
 	}
-
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		return fmt.Errorf("filesystem: cannot create parent dirs for '%s': %w", relPath, err)
 	}
-
-	// Backup optionnel avant écrasement
 	if h.backupOnWrite {
 		if _, statErr := os.Stat(absPath); statErr == nil {
-			backupPath := absPath + ".bak"
 			if bakData, readErr := os.ReadFile(absPath); readErr == nil {
-				_ = os.WriteFile(backupPath, bakData, 0644)
+				_ = os.WriteFile(absPath+".bak", bakData, 0644)
 			}
 		}
 	}
-
 	flag := os.O_WRONLY | os.O_CREATE
 	if appendMode {
 		flag |= os.O_APPEND
 	} else {
 		flag |= os.O_TRUNC
 	}
-
 	f, err := os.OpenFile(absPath, flag, 0644)
 	if err != nil {
 		return fmt.Errorf("filesystem: cannot open '%s' for writing: %w", relPath, err)
 	}
 	defer f.Close()
-
 	if _, err := f.WriteString(content); err != nil {
 		return fmt.Errorf("filesystem: write failed for '%s': %w", relPath, err)
 	}
-
 	h.logger.Debug("filesystem: file written",
 		slog.String("path", relPath),
 		slog.Int("bytes", len(content)),
@@ -211,19 +177,15 @@ func (h *Handler) CreateFile(relPath, content string) error {
 	if err != nil {
 		return err
 	}
-
 	if _, err := os.Stat(absPath); err == nil {
 		return fmt.Errorf("filesystem: file already exists '%s'", relPath)
 	}
-
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		return fmt.Errorf("filesystem: cannot create parent dirs: %w", err)
 	}
-
 	if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("filesystem: cannot create '%s': %w", relPath, err)
 	}
-
 	h.logger.Info("filesystem: file created", slog.String("path", relPath))
 	return nil
 }
@@ -247,12 +209,10 @@ func (h *Handler) ListDir(relPath string) ([]FileEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	entries, err := os.ReadDir(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("filesystem: cannot list '%s': %w", relPath, err)
 	}
-
 	result := make([]FileEntry, 0, len(entries))
 	for _, e := range entries {
 		name := e.Name()
@@ -274,13 +234,8 @@ func (h *Handler) ListDir(relPath string) ([]FileEntry, error) {
 	return result, nil
 }
 
-// ─────────────────────────────────────────────
-// BUS SUBSCRIPTIONS
-// ─────────────────────────────────────────────
-
 // subscribeToEvents câble le Handler aux Topics FILE_* du bus.
 func (h *Handler) subscribeToEvents() {
-	// TopicFileRead → lit et publie TopicFileOpened avec le contenu
 	id := h.bus.Subscribe(api.TopicFileRead, func(ev api.Event) {
 		p, ok := ev.Payload.(api.PayloadFileRead)
 		if !ok {
@@ -295,7 +250,6 @@ func (h *Handler) subscribeToEvents() {
 			h.replyError(ev, p.Path, err)
 			return
 		}
-		// Broadcast du contenu lu — les modules intéressés (éditeur, IA) reçoivent
 		h.bus.Publish(api.Event{
 			ID:            uid.New(),
 			Topic:         api.TopicFileOpened,
@@ -306,7 +260,6 @@ func (h *Handler) subscribeToEvents() {
 	})
 	h.subIDs = append(h.subIDs, id)
 
-	// TopicFileCreate → crée le fichier
 	id = h.bus.Subscribe(api.TopicFileCreate, func(ev api.Event) {
 		p, ok := ev.Payload.(api.PayloadFileCreate)
 		if !ok {
@@ -317,7 +270,6 @@ func (h *Handler) subscribeToEvents() {
 	})
 	h.subIDs = append(h.subIDs, id)
 
-	// TopicFileWrite → écrit dans le fichier
 	id = h.bus.Subscribe(api.TopicFileWrite, func(ev api.Event) {
 		p, ok := ev.Payload.(api.PayloadFileWrite)
 		if !ok {
@@ -328,9 +280,8 @@ func (h *Handler) subscribeToEvents() {
 	})
 	h.subIDs = append(h.subIDs, id)
 
-	// TopicFileDelete → supprime le fichier
 	id = h.bus.Subscribe(api.TopicFileDelete, func(ev api.Event) {
-		p, ok := ev.Payload.(api.PayloadFileRead) // réutilise PayloadFileRead (juste un Path)
+		p, ok := ev.Payload.(api.PayloadFileRead)
 		if !ok {
 			return
 		}
@@ -342,18 +293,12 @@ func (h *Handler) subscribeToEvents() {
 	h.logger.Debug("filesystem: subscribed to FILE_* events")
 }
 
-// ─────────────────────────────────────────────
-// SÉCURITÉ — Anti path traversal
-// ─────────────────────────────────────────────
-
 // safePath valide et résout un chemin relatif en chemin absolu sûr.
-// Toute tentative de sortir du workspace est bloquée.
 func (h *Handler) safePath(relPath string) (string, error) {
 	h.mu.RLock()
 	workspace := h.workspaceDir
 	h.mu.RUnlock()
 
-	// Résoudre le chemin absolu
 	var absPath string
 	if filepath.IsAbs(relPath) {
 		absPath = filepath.Clean(relPath)
@@ -361,18 +306,14 @@ func (h *Handler) safePath(relPath string) (string, error) {
 		absPath = filepath.Clean(filepath.Join(workspace, relPath))
 	}
 
-	// Vérification anti-traversal : le chemin résolu doit être
-	// DANS le workspace (préfixé par workspace + séparateur)
 	if !strings.HasPrefix(absPath, workspace+string(os.PathSeparator)) &&
 		absPath != workspace {
 		return "", fmt.Errorf("filesystem: path traversal attempt blocked: '%s' is outside workspace '%s'",
 			relPath, workspace)
 	}
-
 	return absPath, nil
 }
 
-// shouldIgnore retourne true si un nom de fichier/dossier doit être ignoré.
 func (h *Handler) shouldIgnore(name string) bool {
 	for _, pattern := range h.ignorePatterns {
 		matched, err := filepath.Match(pattern, name)
@@ -382,10 +323,6 @@ func (h *Handler) shouldIgnore(name string) bool {
 	}
 	return false
 }
-
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
 
 func (h *Handler) replyOperation(ev api.Event, path string, err error) {
 	result := OperationResult{Success: err == nil, Path: path}
@@ -414,7 +351,5 @@ func (h *Handler) replyError(ev api.Event, path string, err error) {
 
 // Stop désabonne le Handler de tous les Topics.
 func (h *Handler) Stop() {
-	// Le bus est arrêté par le contexte — pas besoin de désabonnement explicite ici
-	// (le channel est fermé par bus.shutdown()). Méthode présente pour l'interface.
 	h.logger.Debug("filesystem: handler stopped")
 }

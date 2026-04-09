@@ -10,24 +10,17 @@ import (
 	"github.com/axiom-ide/axiom/api"
 )
 
-// ─────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────
-
 // AuditEntry est une entrée dans le journal d'audit de sécurité.
-// Chaque action (autorisée ou rejetée) est enregistrée.
 type AuditEntry struct {
-	Timestamp  time.Time        `json:"timestamp"`
-	ModuleID   string           `json:"module_id"`
-	Topic      api.Topic        `json:"topic"`
-	Clearance  ClearanceLevel   `json:"clearance"`
-	Required   ClearanceLevel   `json:"required"`
-	Authorized bool             `json:"authorized"`
-	Reason     string           `json:"reason,omitempty"`
+	Timestamp  time.Time      `json:"timestamp"`
+	ModuleID   string         `json:"module_id"`
+	Topic      api.Topic      `json:"topic"`
+	Clearance  ClearanceLevel `json:"clearance"`
+	Required   ClearanceLevel `json:"required"`
+	Authorized bool           `json:"authorized"`
+	Reason     string         `json:"reason,omitempty"`
 }
 
-// registeredModule est la représentation interne d'un module enregistré
-// avec son niveau d'accréditation validé.
 type registeredModule struct {
 	id        string
 	clearance ClearanceLevel
@@ -48,31 +41,20 @@ func (e *SecurityError) Error() string {
 	)
 }
 
-// ─────────────────────────────────────────────
-// SECURITY MANAGER
-// ─────────────────────────────────────────────
-
 // Manager est le gardien de la Sovereign API.
-// Toute action d'un module passe par lui avant d'atteindre le bus.
 type Manager struct {
 	mu      sync.RWMutex
-	modules map[string]*registeredModule // clé : moduleID
+	modules map[string]*registeredModule
 
-	// auditLog est le journal d'audit en mémoire (FIFO, taille limitée).
 	auditMu  sync.Mutex
 	auditLog []AuditEntry
-	maxAudit int // nombre max d'entrées en mémoire
+	maxAudit int
 
-	// bus est utilisé pour publier les événements de sécurité
-	// (SecurityDenied, Audit) sans créer de dépendance cyclique.
 	publishFn func(event api.Event)
-
-	logger *slog.Logger
+	logger    *slog.Logger
 }
 
 // NewManager crée un Security Manager.
-// publishFn : fonction de publication sur le bus (injection de dépendance
-// pour éviter un import circulaire entre security et bus).
 func NewManager(publishFn func(api.Event), logger *slog.Logger) *Manager {
 	return &Manager{
 		modules:   make(map[string]*registeredModule),
@@ -83,26 +65,14 @@ func NewManager(publishFn func(api.Event), logger *slog.Logger) *Manager {
 	}
 }
 
-// ─────────────────────────────────────────────
-// REGISTER
-// ─────────────────────────────────────────────
-
 // RegisterModule enregistre un module avec son niveau d'accréditation.
-// Si le module est déjà enregistré, son niveau est mis à jour.
-// Cette opération est réservée au Registry (appelée au chargement d'un module).
 func (m *Manager) RegisterModule(moduleID string, clearance ClearanceLevel) error {
 	if moduleID == "" {
 		return errors.New("security: moduleID cannot be empty")
 	}
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	m.modules[moduleID] = &registeredModule{
-		id:        moduleID,
-		clearance: clearance,
-	}
-
+	m.modules[moduleID] = &registeredModule{id: moduleID, clearance: clearance}
 	m.logger.Info("security: module registered",
 		slog.String("module_id", moduleID),
 		slog.String("clearance", clearance.String()),
@@ -110,7 +80,7 @@ func (m *Manager) RegisterModule(moduleID string, clearance ClearanceLevel) erro
 	return nil
 }
 
-// UnregisterModule supprime un module du registre de sécurité.
+// UnregisterModule supprime un module du registre.
 func (m *Manager) UnregisterModule(moduleID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -118,68 +88,40 @@ func (m *Manager) UnregisterModule(moduleID string) {
 	m.logger.Info("security: module unregistered", slog.String("module_id", moduleID))
 }
 
-// ─────────────────────────────────────────────
-// AUTHORIZE
-// ─────────────────────────────────────────────
-
 // Authorize vérifie si un module est autorisé à publier sur un Topic.
-// C'est le point de contrôle central de la Sovereign API.
-//
-// Retourne nil si autorisé, *SecurityError si refusé.
-// Publie automatiquement un événement TopicSecurityDenied en cas de refus.
 func (m *Manager) Authorize(moduleID string, topic api.Topic) error {
 	m.mu.RLock()
 	mod, exists := m.modules[moduleID]
 	m.mu.RUnlock()
 
-	// Module inconnu = refus immédiat
 	if !exists {
-		err := &SecurityError{
-			ModuleID:      moduleID,
-			Topic:         topic,
-			ActualLevel:   -1,
-			RequiredLevel: L0,
-		}
+		err := &SecurityError{ModuleID: moduleID, Topic: topic, ActualLevel: -1, RequiredLevel: L0}
 		m.recordAudit(moduleID, topic, -1, L0, false, "module not registered")
 		m.publishDenied(moduleID, topic, -1, L0, "module not registered")
 		return err
 	}
 
-	// Récupère le niveau requis pour ce Topic
 	required, ok := RequiredLevelForTopic(string(topic))
 	if !ok {
-		// Topic inconnu de la matrice = refus par sécurité par défaut
-		err := &SecurityError{
-			ModuleID:      moduleID,
-			Topic:         topic,
-			ActualLevel:   mod.clearance,
-			RequiredLevel: L3 + 1,
-		}
+		err := &SecurityError{ModuleID: moduleID, Topic: topic, ActualLevel: mod.clearance, RequiredLevel: L3 + 1}
 		m.recordAudit(moduleID, topic, mod.clearance, L3+1, false, "unknown topic")
 		m.publishDenied(moduleID, topic, mod.clearance, L3+1, "unknown topic")
 		return err
 	}
 
-	// Vérification du niveau
 	if !CanPublish(mod.clearance, required) {
-		err := &SecurityError{
-			ModuleID:      moduleID,
-			Topic:         topic,
-			ActualLevel:   mod.clearance,
-			RequiredLevel: required,
-		}
+		err := &SecurityError{ModuleID: moduleID, Topic: topic, ActualLevel: mod.clearance, RequiredLevel: required}
 		m.recordAudit(moduleID, topic, mod.clearance, required, false, "insufficient clearance")
 		m.publishDenied(moduleID, topic, mod.clearance, required, "insufficient clearance")
 		m.logger.Warn("security: action denied", slog.String("error", err.Error()))
 		return err
 	}
 
-	// Autorisé — on logue quand même pour l'audit trail
 	m.recordAudit(moduleID, topic, mod.clearance, required, true, "")
 	return nil
 }
 
-// GetClearance retourne le niveau d'accréditation d'un module enregistré.
+// GetClearance retourne le niveau d'accréditation d'un module.
 func (m *Manager) GetClearance(moduleID string) (ClearanceLevel, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -190,18 +132,14 @@ func (m *Manager) GetClearance(moduleID string) (ClearanceLevel, bool) {
 	return mod.clearance, true
 }
 
-// AuditLog retourne une copie du journal d'audit récent.
+// AuditLog retourne une copie du journal d'audit.
 func (m *Manager) AuditLog() []AuditEntry {
 	m.auditMu.Lock()
 	defer m.auditMu.Unlock()
-	copy := make([]AuditEntry, len(m.auditLog))
-	copy = append(copy[:0], m.auditLog...)
-	return copy
+	result := make([]AuditEntry, len(m.auditLog))
+	copy(result, m.auditLog)
+	return result
 }
-
-// ─────────────────────────────────────────────
-// INTERNAL
-// ─────────────────────────────────────────────
 
 func (m *Manager) recordAudit(moduleID string, topic api.Topic,
 	actual, required ClearanceLevel, authorized bool, reason string) {
@@ -215,11 +153,9 @@ func (m *Manager) recordAudit(moduleID string, topic api.Topic,
 		Authorized: authorized,
 		Reason:     reason,
 	}
-
 	m.auditMu.Lock()
 	defer m.auditMu.Unlock()
 	if len(m.auditLog) >= m.maxAudit {
-		// Rotation FIFO : on supprime le plus ancien
 		m.auditLog = m.auditLog[1:]
 	}
 	m.auditLog = append(m.auditLog, entry)
@@ -227,7 +163,6 @@ func (m *Manager) recordAudit(moduleID string, topic api.Topic,
 
 func (m *Manager) publishDenied(moduleID string, topic api.Topic,
 	actual, required ClearanceLevel, reason string) {
-
 	if m.publishFn == nil {
 		return
 	}

@@ -1,6 +1,4 @@
-// Package orchestrator implémente le Window Orchestrator d'Axiom :
-// gestion du multi-fenêtrage natif OS, détachement de panels,
-// et communication asynchrone entre fenêtres secondaires et le core Go.
+// Package orchestrator implémente le Window Orchestrator d'Axiom.
 package orchestrator
 
 import (
@@ -12,10 +10,6 @@ import (
 	"github.com/axiom-ide/axiom/core/bus"
 )
 
-// ─────────────────────────────────────────────
-// WINDOW — Représentation d'une fenêtre OS
-// ─────────────────────────────────────────────
-
 // WindowID est un identifiant unique de fenêtre.
 type WindowID string
 
@@ -23,12 +17,12 @@ type WindowID string
 type WindowState string
 
 const (
-	WindowStateOpen    WindowState = "open"
-	WindowStateHidden  WindowState = "hidden"
-	WindowStateClosed  WindowState = "closed"
+	WindowStateOpen   WindowState = "open"
+	WindowStateHidden WindowState = "hidden"
+	WindowStateClosed WindowState = "closed"
 )
 
-// PanelPosition définit où un panel est ancré dans la fenêtre principale.
+// PanelPosition définit où un panel est ancré.
 type PanelPosition string
 
 const (
@@ -36,76 +30,50 @@ const (
 	PanelLeft   PanelPosition = "left"
 	PanelRight  PanelPosition = "right"
 	PanelCenter PanelPosition = "center"
-	PanelFloat  PanelPosition = "float" // fenêtre OS indépendante
+	PanelFloat  PanelPosition = "float"
 )
 
 // Window représente une fenêtre OS gérée par l'Orchestrateur.
 type Window struct {
-	ID       WindowID    `json:"id"`
-	Title    string      `json:"title"`
-	PanelID  string      `json:"panel_id"`  // ID du panel hébergé (si applicable)
-	Position PanelPosition `json:"position"`
-	State    WindowState `json:"state"`
-	Width    int         `json:"width"`
-	Height   int         `json:"height"`
-	X        int         `json:"x"`
-	Y        int         `json:"y"`
-
-	// commandCh est le channel de communication avec cette fenêtre.
-	// Les commandes UI (ex: injecter du HTML) sont envoyées via ce channel.
+	ID        WindowID      `json:"id"`
+	Title     string        `json:"title"`
+	PanelID   string        `json:"panel_id"`
+	Position  PanelPosition `json:"position"`
+	State     WindowState   `json:"state"`
+	Width     int           `json:"width"`
+	Height    int           `json:"height"`
+	X         int           `json:"x"`
+	Y         int           `json:"y"`
 	commandCh chan WindowCommand
 }
 
 // WindowCommand est une commande envoyée à une fenêtre individuelle.
 type WindowCommand struct {
-	Type    string      `json:"type"`    // ex: "set_content", "set_title", "close"
+	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
 }
 
-// ─────────────────────────────────────────────
-// ORCHESTRATOR
-// ─────────────────────────────────────────────
-
 // Orchestrator est le gestionnaire de fenêtres d'Axiom.
-// Il traduit les événements du bus (TopicUIOpenPanel, TopicUINewWindow, etc.)
-// en actions sur les fenêtres OS natives via Wails/webview.
 type Orchestrator struct {
 	mu      sync.RWMutex
 	windows map[WindowID]*Window
-
-	// nativeAdapter est l'interface vers le framework natif (Wails, webview, etc.)
-	// Elle est injectée au démarrage pour permettre les tests sans UI réelle.
-	native NativeWindowAdapter
-
-	bus    *bus.EventBus
-	logger *slog.Logger
+	native  NativeWindowAdapter
+	bus     *bus.EventBus
+	logger  *slog.Logger
 }
 
-// NativeWindowAdapter est l'interface que doit implémenter
-// le framework UI natif (Wails, webview/webview, etc.).
-// Axiom core ne connaît PAS Wails directement — seule cette interface.
+// NativeWindowAdapter est l'interface vers le framework UI natif.
 type NativeWindowAdapter interface {
-	// CreateWindow crée une nouvelle fenêtre OS native.
 	CreateWindow(id string, title string, width, height int) error
-
-	// ShowWindow rend une fenêtre visible.
 	ShowWindow(id string) error
-
-	// HideWindow masque une fenêtre sans la détruire.
 	HideWindow(id string) error
-
-	// DestroyWindow ferme et détruit une fenêtre.
 	DestroyWindow(id string) error
-
-	// SetWindowContent injecte du contenu HTML dans une fenêtre.
 	SetWindowContent(id string, html string) error
-
-	// SetWindowTitle change le titre d'une fenêtre.
 	SetWindowTitle(id string, title string) error
 }
 
 // NewOrchestrator crée un Orchestrateur.
-// native peut être nil pour les tests (no-op adapter utilisé automatiquement).
+// BUG FIX: vérification nil sur native ET sur bus avant subscribeToEvents.
 func NewOrchestrator(native NativeWindowAdapter, eventBus *bus.EventBus, logger *slog.Logger) *Orchestrator {
 	if native == nil {
 		native = &noopAdapter{logger: logger}
@@ -116,15 +84,15 @@ func NewOrchestrator(native NativeWindowAdapter, eventBus *bus.EventBus, logger 
 		bus:     eventBus,
 		logger:  logger,
 	}
-	o.subscribeToEvents()
+	// BUG FIX: ne pas appeler subscribeToEvents si le bus est nil
+	// (cas headless / tests sans bus)
+	if eventBus != nil {
+		o.subscribeToEvents()
+	}
 	return o
 }
 
-// ─────────────────────────────────────────────
-// PUBLIC API
-// ─────────────────────────────────────────────
-
-// OpenPanel ouvre (ou crée si inexistant) un panel dans la fenêtre principale.
+// OpenPanel ouvre (ou crée si inexistant) un panel.
 func (o *Orchestrator) OpenPanel(panelID, title, position, content string) error {
 	winID := WindowID("panel:" + panelID)
 
@@ -166,7 +134,7 @@ func (o *Orchestrator) OpenPanel(panelID, title, position, content string) error
 	return nil
 }
 
-// DetachPanel "détache" un panel ancré et le transforme en fenêtre OS flottante.
+// DetachPanel transforme un panel ancré en fenêtre flottante.
 func (o *Orchestrator) DetachPanel(panelID string) error {
 	winID := WindowID("panel:" + panelID)
 	o.mu.Lock()
@@ -175,11 +143,9 @@ func (o *Orchestrator) DetachPanel(panelID string) error {
 		win.Position = PanelFloat
 	}
 	o.mu.Unlock()
-
 	if !exists {
 		return fmt.Errorf("orchestrator: panel '%s' not found", panelID)
 	}
-
 	o.logger.Info("orchestrator: panel detached", slog.String("panel_id", panelID))
 	return nil
 }
@@ -190,19 +156,15 @@ func (o *Orchestrator) ClosePanel(panelID string) error {
 	o.mu.Lock()
 	win, exists := o.windows[winID]
 	o.mu.Unlock()
-
 	if !exists {
 		return fmt.Errorf("orchestrator: panel '%s' not found", panelID)
 	}
-
 	if err := o.native.DestroyWindow(string(winID)); err != nil {
 		return err
 	}
-
 	o.mu.Lock()
 	win.State = WindowStateClosed
 	o.mu.Unlock()
-
 	o.logger.Info("orchestrator: panel closed", slog.String("panel_id", panelID))
 	return nil
 }
@@ -218,11 +180,7 @@ func (o *Orchestrator) ListWindows() []*Window {
 	return result
 }
 
-// ─────────────────────────────────────────────
-// BUS SUBSCRIPTIONS
-// ─────────────────────────────────────────────
-
-// subscribeToEvents écoute les Topics UI sur le bus et délègue à l'Orchestrateur.
+// subscribeToEvents écoute les Topics UI sur le bus.
 func (o *Orchestrator) subscribeToEvents() {
 	o.bus.Subscribe(api.TopicUIOpenPanel, func(ev api.Event) {
 		p, ok := ev.Payload.(api.PayloadUIPanel)
@@ -250,20 +208,14 @@ func (o *Orchestrator) subscribeToEvents() {
 			return
 		}
 		o.logger.Info("orchestrator: theme change requested", slog.String("theme_id", t.ThemeID))
-		// TODO: broadcaster à toutes les fenêtres actives via JS bridge
 	})
 }
 
-// ─────────────────────────────────────────────
-// NO-OP ADAPTER (pour tests / démarrage sans UI)
-// ─────────────────────────────────────────────
-
-type noopAdapter struct {
-	logger *slog.Logger
-}
+// noopAdapter — adapter no-op pour les tests / mode headless.
+type noopAdapter struct{ logger *slog.Logger }
 
 func (n *noopAdapter) CreateWindow(id, title string, w, h int) error {
-	n.logger.Debug("noop: CreateWindow", slog.String("id", id), slog.String("title", title))
+	n.logger.Debug("noop: CreateWindow", slog.String("id", id))
 	return nil
 }
 func (n *noopAdapter) ShowWindow(id string) error {
@@ -283,6 +235,6 @@ func (n *noopAdapter) SetWindowContent(id, html string) error {
 	return nil
 }
 func (n *noopAdapter) SetWindowTitle(id, title string) error {
-	n.logger.Debug("noop: SetWindowTitle", slog.String("id", id), slog.String("title", title))
+	n.logger.Debug("noop: SetWindowTitle", slog.String("id", id))
 	return nil
 }

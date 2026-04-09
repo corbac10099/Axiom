@@ -1,12 +1,4 @@
 // Package config gère le chargement hiérarchique de la configuration d'Axiom.
-//
-// Priorité (du plus faible au plus fort) :
-//   1. Valeurs par défaut codées en dur
-//   2. Fichier config.json (workspace courant ou répertoire home)
-//   3. Variables d'environnement AXIOM_*
-//   4. Flags CLI (parsing externe, transmis via Apply)
-//
-// La config est immuable après Load() — les modules lisent via GetConfig().
 package config
 
 import (
@@ -18,74 +10,53 @@ import (
 	"strings"
 )
 
-// ─────────────────────────────────────────────
-// STRUCTURES
-// ─────────────────────────────────────────────
-
-// Config est la configuration complète d'Axiom.
-// Chaque section est un sous-struct pour un découplage propre.
 type Config struct {
-	Core      CoreConfig      `json:"core"`
-	UI        UIConfig        `json:"ui"`
-	AI        AIConfig        `json:"ai"`
+	Core       CoreConfig       `json:"core"`
+	UI         UIConfig         `json:"ui"`
+	AI         AIConfig         `json:"ai"`
 	FileSystem FileSystemConfig `json:"filesystem"`
-	Security  SecurityConfig  `json:"security"`
+	Security   SecurityConfig   `json:"security"`
 }
 
-// CoreConfig regroupe les paramètres du moteur principal.
 type CoreConfig struct {
-	ModulesDir    string `json:"modules_dir"`    // chemin vers /modules
-	LogLevel      string `json:"log_level"`      // "debug"|"info"|"warn"|"error"
-	BusBufferSize int    `json:"bus_buffer_size"` // buffer channel par Topic
-	WorkspaceDir  string `json:"workspace_dir"`  // répertoire de travail ouvert
+	ModulesDir    string `json:"modules_dir"`
+	LogLevel      string `json:"log_level"`
+	BusBufferSize int    `json:"bus_buffer_size"`
+	WorkspaceDir  string `json:"workspace_dir"`
 }
 
-// UIConfig regroupe les paramètres d'interface.
 type UIConfig struct {
-	DefaultTheme  string `json:"default_theme"`   // "dark"|"light"|"monokai"
-	WindowWidth   int    `json:"window_width"`    // largeur fenêtre principale (px)
-	WindowHeight  int    `json:"window_height"`   // hauteur fenêtre principale (px)
-	FontSize      int    `json:"font_size"`       // taille de police Monaco (pt)
-	TabSize       int    `json:"tab_size"`        // taille indentation
-	WordWrap      bool   `json:"word_wrap"`       // retour à la ligne automatique
+	DefaultTheme string `json:"default_theme"`
+	WindowWidth  int    `json:"window_width"`
+	WindowHeight int    `json:"window_height"`
+	FontSize     int    `json:"font_size"`
+	TabSize      int    `json:"tab_size"`
+	WordWrap     bool   `json:"word_wrap"`
 }
 
-// AIConfig regroupe les paramètres du bridge IA.
 type AIConfig struct {
-	Provider    string `json:"provider"`     // "ollama"|"openai"|"anthropic"|"none"
-	ModelID     string `json:"model_id"`     // ex: "mistral:7b", "gpt-4o"
-	BaseURL     string `json:"base_url"`     // ex: "http://localhost:11434"
-	APIKey      string `json:"api_key"`      // laisser vide pour Ollama local
-	MaxTokens   int    `json:"max_tokens"`   // limite de tokens par requête
-	Temperature float64 `json:"temperature"` // 0.0–1.0
-	TimeoutSecs int    `json:"timeout_secs"` // timeout HTTP en secondes
+	Provider    string  `json:"provider"`
+	ModelID     string  `json:"model_id"`
+	BaseURL     string  `json:"base_url"`
+	APIKey      string  `json:"api_key"`
+	MaxTokens   int     `json:"max_tokens"`
+	Temperature float64 `json:"temperature"`
+	TimeoutSecs int     `json:"timeout_secs"`
 }
 
-// FileSystemConfig regroupe les paramètres du gestionnaire de fichiers.
 type FileSystemConfig struct {
-	WatchEnabled  bool     `json:"watch_enabled"`   // activer le watcher de fichiers
-	MaxFileSizeMB int      `json:"max_file_size_mb"` // limite lecture (MB)
-	IgnorePatterns []string `json:"ignore_patterns"` // ex: [".git", "node_modules"]
-	BackupOnWrite bool     `json:"backup_on_write"`  // créer .bak avant écrasement
+	WatchEnabled   bool     `json:"watch_enabled"`
+	MaxFileSizeMB  int      `json:"max_file_size_mb"`
+	IgnorePatterns []string `json:"ignore_patterns"`
+	BackupOnWrite  bool     `json:"backup_on_write"`
 }
 
-// SecurityConfig regroupe les paramètres de sécurité.
 type SecurityConfig struct {
-	// RequireApprovalForL2 : si true, un dialog de confirmation s'affiche
-	// pour tout module demandant L2 ou plus.
 	RequireApprovalForL2 bool `json:"require_approval_for_l2"`
-	// AuditLogMaxEntries : nombre max d'entrées en mémoire dans l'audit log.
-	AuditLogMaxEntries int  `json:"audit_log_max_entries"`
-	// AllowExternalModules : si false, seuls les modules dans /modules sont chargés.
+	AuditLogMaxEntries   int  `json:"audit_log_max_entries"`
 	AllowExternalModules bool `json:"allow_external_modules"`
 }
 
-// ─────────────────────────────────────────────
-// DEFAULTS
-// ─────────────────────────────────────────────
-
-// Default retourne la configuration par défaut d'Axiom.
-// Toutes les valeurs sont sensées pour un environnement de développement.
 func Default() Config {
 	return Config{
 		Core: CoreConfig{
@@ -124,17 +95,10 @@ func Default() Config {
 	}
 }
 
-// ─────────────────────────────────────────────
-// LOADER
-// ─────────────────────────────────────────────
-
-// Load charge la configuration depuis les sources disponibles dans l'ordre de priorité.
-// Ne retourne jamais d'erreur fatale — en cas de problème, les défauts sont utilisés.
 func Load(configPath string) (Config, []string) {
 	cfg := Default()
 	var warnings []string
 
-	// ── Étape 1 : Chercher et lire le fichier de config ───────────
 	path := resolveConfigPath(configPath)
 	if path != "" {
 		if err := loadFromFile(path, &cfg); err != nil {
@@ -144,18 +108,14 @@ func Load(configPath string) (Config, []string) {
 		warnings = append(warnings, "config: no config file found, using defaults")
 	}
 
-	// ── Étape 2 : Surcharges via variables d'environnement ────────
 	applyEnvOverrides(&cfg)
 
-	// ── Étape 3 : Validation ─────────────────────────────────────
 	if errs := validate(&cfg); len(errs) > 0 {
 		warnings = append(warnings, errs...)
 	}
-
 	return cfg, warnings
 }
 
-// Save sérialise la configuration courante dans un fichier JSON.
 func Save(cfg Config, path string) error {
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -167,12 +127,6 @@ func Save(cfg Config, path string) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// ─────────────────────────────────────────────
-// INTERNAL
-// ─────────────────────────────────────────────
-
-// resolveConfigPath trouve le chemin du fichier de configuration.
-// Cherche dans : configPath explicite → ./.axiom/config.json → ~/.axiom/config.json
 func resolveConfigPath(explicit string) string {
 	if explicit != "" {
 		if _, err := os.Stat(explicit); err == nil {
@@ -180,10 +134,7 @@ func resolveConfigPath(explicit string) string {
 		}
 		return ""
 	}
-	candidates := []string{
-		".axiom/config.json",
-		"axiom.config.json",
-	}
+	candidates := []string{".axiom/config.json", "axiom.config.json"}
 	if home, err := os.UserHomeDir(); err == nil {
 		candidates = append(candidates, filepath.Join(home, ".axiom", "config.json"))
 	}
@@ -195,17 +146,14 @@ func resolveConfigPath(explicit string) string {
 	return ""
 }
 
-// loadFromFile lit et parse un fichier JSON dans cfg (merge — les zéro-valeurs ne sont pas écrasées).
 func loadFromFile(path string, cfg *Config) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	// Unmarshal dans une map intermédiaire pour un merge propre
 	return json.Unmarshal(data, cfg)
 }
 
-// applyEnvOverrides lit les variables d'environnement AXIOM_* et surcharge cfg.
 func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("AXIOM_MODULES_DIR"); v != "" {
 		cfg.Core.ModulesDir = v
@@ -241,10 +189,8 @@ func applyEnvOverrides(cfg *Config) {
 	}
 }
 
-// validate vérifie la cohérence de la configuration et retourne des avertissements.
 func validate(cfg *Config) []string {
 	var warns []string
-
 	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
 	if !validLogLevels[strings.ToLower(cfg.Core.LogLevel)] {
 		warns = append(warns, fmt.Sprintf("config: invalid log_level '%s', using 'info'", cfg.Core.LogLevel))

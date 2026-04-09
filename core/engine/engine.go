@@ -1,8 +1,4 @@
-// Package engine est le cœur d'Axiom : il assemble tous les sous-systèmes
-// (bus, security, registry) et expose une interface unifiée aux modules
-// via la méthode Dispatch() — le seul point d'entrée sécurisé.
-//
-// Pattern : Façade + Mediator.
+// Package engine est le cœur d'Axiom : il assemble tous les sous-systèmes.
 package engine
 
 import (
@@ -22,9 +18,9 @@ import (
 
 // Config regroupe les paramètres de démarrage d'Axiom.
 type Config struct {
-	ModulesDir    string // chemin vers le dossier /modules
-	BusBufferSize int    // taille du buffer par Topic sur le bus
-	LogLevel      string // "debug", "info", "warn", "error"
+	ModulesDir    string
+	BusBufferSize int
+	LogLevel      string
 }
 
 // DefaultConfig retourne une configuration sensée pour le développement.
@@ -36,7 +32,7 @@ func DefaultConfig() Config {
 	}
 }
 
-// Engine est le moteur central d'Axiom — singleton de l'application.
+// Engine est le moteur central d'Axiom.
 type Engine struct {
 	cfg      Config
 	bus      *bus.EventBus
@@ -48,21 +44,13 @@ type Engine struct {
 }
 
 // New crée et initialise le moteur Axiom.
-// Séquence : logger → context → bus → security → registry → handlers
 func New(cfg Config) (*Engine, error) {
 	logger := buildLogger(cfg.LogLevel)
-	logger.Info("axiom: initializing engine", slog.String("version", "0.1.0-alpha"))
+	logger.Info("axiom: initializing engine", slog.String("version", "0.2.0-alpha"))
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	// Bus d'événements — backbone de toute communication inter-modules
 	eventBus := bus.New(ctx, cfg.BusBufferSize, logger)
-
-	// Security Manager — gardien de la Sovereign API
-	// publishFn injecté pour éviter import circulaire bus ↔ security
 	secMgr := security.NewManager(eventBus.Publish, logger)
-
-	// Registry — découverte et chargement des modules
 	reg := registry.NewRegistry(cfg.ModulesDir, secMgr, eventBus.Publish, logger)
 
 	e := &Engine{
@@ -75,36 +63,49 @@ func New(cfg Config) (*Engine, error) {
 		cancel:   cancel,
 	}
 
+	// BUG FIX: enregistrer les composants internes de confiance dans le Security Manager
+	// avant tout chargement de module externe.
+	// "filesystem" publie sur "file.opened" (L3) et sur "system.*" (via le bus interne).
+	// "engine" publie sur "system.*" (L3) et gère le re-dispatch IA.
+	// Ces enregistrements sont faits AVANT ScanAndLoad() pour que les publications
+	// de ces composants ne soient pas rejetées par le Security Manager.
+	if err := secMgr.RegisterModule("filesystem", security.L3); err != nil {
+		cancel()
+		return nil, fmt.Errorf("engine: cannot register filesystem module: %w", err)
+	}
+	if err := secMgr.RegisterModule("engine", security.L3); err != nil {
+		cancel()
+		return nil, fmt.Errorf("engine: cannot register engine module: %w", err)
+	}
+	if err := secMgr.RegisterModule("registry", security.L3); err != nil {
+		cancel()
+		return nil, fmt.Errorf("engine: cannot register registry module: %w", err)
+	}
+	if err := secMgr.RegisterModule("security.manager", security.L3); err != nil {
+		cancel()
+		return nil, fmt.Errorf("engine: cannot register security.manager: %w", err)
+	}
+
 	e.registerInternalHandlers()
 	return e, nil
 }
 
-// ─────────────────────────────────────────────
-// CYCLE DE VIE
-// ─────────────────────────────────────────────
-
 // Start lance le moteur : scan des modules + émission SystemReady.
 func (e *Engine) Start() error {
 	e.logger.Info("axiom: starting module discovery...")
-
 	if err := e.registry.ScanAndLoad(); err != nil {
 		return fmt.Errorf("axiom: module scan failed: %w", err)
 	}
-
 	e.logger.Info("axiom: all modules processed",
 		slog.Int("total", e.registry.Count()),
 		slog.Int("active", len(e.registry.ListActive())),
 	)
-
-	// PublishSync : on attend que tous les handlers SystemReady aient fini
-	// avant de retourner (garantit que les modules sont initialisés)
 	e.bus.PublishSync(api.Event{
 		ID:        uuid.New().String(),
 		Topic:     api.TopicSystemReady,
 		Source:    "engine",
 		Timestamp: time.Now().UTC(),
 	})
-
 	e.logger.Info("axiom: engine is ready ✓")
 	return nil
 }
@@ -112,42 +113,30 @@ func (e *Engine) Start() error {
 // Shutdown arrête proprement le moteur.
 func (e *Engine) Shutdown() {
 	e.logger.Info("axiom: shutdown initiated...")
-
-	// Notifier les modules avant d'arrêter le bus
 	e.bus.PublishSync(api.Event{
 		ID:        uuid.New().String(),
 		Topic:     api.TopicSystemShutdown,
 		Source:    "engine",
 		Timestamp: time.Now().UTC(),
 	})
-
-	e.cancel() // annule ctx → le bus ferme ses goroutines proprement
+	e.cancel()
 	e.logger.Info("axiom: shutdown complete")
 }
 
-// Wait bloque jusqu'à annulation du contexte (Shutdown ou signal OS).
+// Wait bloque jusqu'à annulation du contexte.
 func (e *Engine) Wait() { <-e.ctx.Done() }
 
-// Context expose le contexte global pour les composants qui en ont besoin.
+// Context expose le contexte global.
 func (e *Engine) Context() context.Context { return e.ctx }
 
-// ─────────────────────────────────────────────
-// DISPATCH — Sovereign API Gateway
-// ─────────────────────────────────────────────
+// Bus expose le bus pour les composants internes (ex: Orchestrator).
+func (e *Engine) Bus() *bus.EventBus { return e.bus }
 
 // Dispatch est le point d'entrée universel pour toute action d'un module.
-//
-// Pipeline :
-//  1. Authorize(moduleID, topic)  → Security Manager
-//  2. Si L_module >= L_topic     → Publish sur le bus
-//  3. Si L_module < L_topic      → Retourne *SecurityError + publie TopicSecurityDenied
 func (e *Engine) Dispatch(moduleID string, topic api.Topic, payload interface{}) error {
-	// ── Contrôle de sécurité — OBLIGATOIRE, non bypassable ──────
 	if err := e.security.Authorize(moduleID, topic); err != nil {
-		return err // l'audit + SecurityDenied sont déjà publiés par Authorize()
+		return err
 	}
-
-	// ── Publication sur le bus ────────────────────────────────────
 	e.bus.Publish(api.Event{
 		ID:        uuid.New().String(),
 		Topic:     topic,
@@ -159,8 +148,6 @@ func (e *Engine) Dispatch(moduleID string, topic api.Topic, payload interface{})
 }
 
 // Subscribe enregistre un handler sur un Topic.
-// La souscription (lecture) ne nécessite PAS de permission.
-// Un module L0 (Observer) peut écouter tous les Topics.
 func (e *Engine) Subscribe(topic api.Topic, handler bus.HandlerFunc) string {
 	return e.bus.Subscribe(topic, handler)
 }
@@ -170,13 +157,8 @@ func (e *Engine) Unsubscribe(topic api.Topic, subID string) {
 	e.bus.Unsubscribe(topic, subID)
 }
 
-// ─────────────────────────────────────────────
-// HANDLERS INTERNES
-// ─────────────────────────────────────────────
-
-// registerInternalHandlers câble les réponses système fondamentales du cœur.
+// registerInternalHandlers câble les réponses système fondamentales.
 func (e *Engine) registerInternalHandlers() {
-	// Refus de sécurité → log structuré
 	e.bus.Subscribe(api.TopicSecurityDenied, func(ev api.Event) {
 		d, ok := ev.Payload.(api.PayloadSecurityDenied)
 		if !ok {
@@ -191,7 +173,6 @@ func (e *Engine) registerInternalHandlers() {
 		)
 	})
 
-	// Modules chargés → log informatif
 	e.bus.Subscribe(api.TopicModuleLoaded, func(ev api.Event) {
 		s, ok := ev.Payload.(api.PayloadModuleStatus)
 		if !ok {
@@ -203,7 +184,6 @@ func (e *Engine) registerInternalHandlers() {
 		)
 	})
 
-	// Erreurs de modules → log d'erreur
 	e.bus.Subscribe(api.TopicModuleError, func(ev api.Event) {
 		s, ok := ev.Payload.(api.PayloadModuleStatus)
 		if !ok {
@@ -215,9 +195,6 @@ func (e *Engine) registerInternalHandlers() {
 		)
 	})
 
-	// Commandes IA → interprétation et re-dispatch sécurisé
-	// Le module IA publie sur TopicAICommand → ce handler re-dispatche
-	// via Dispatch() avec le vrai moduleID source → permissions vérifiées.
 	e.bus.Subscribe(api.TopicAICommand, func(ev api.Event) {
 		e.handleAICommand(ev)
 	})
@@ -226,23 +203,17 @@ func (e *Engine) registerInternalHandlers() {
 }
 
 // handleAICommand traite les commandes générées par un module IA.
-// La commande est re-dispatchée via Dispatch() pour vérification de permissions.
-// Un module IA ne peut donc PAS contourner la Sovereign API.
 func (e *Engine) handleAICommand(ev api.Event) {
 	cmd, ok := ev.Payload.(api.PayloadAICommand)
 	if !ok {
 		e.logger.Warn("ai: invalid AICommand payload", slog.String("source", ev.Source))
 		return
 	}
-
 	e.logger.Info("🤖 AI command",
 		slog.String("source", ev.Source),
 		slog.String("raw", cmd.RawCommand),
 		slog.String("→ topic", string(cmd.ParsedTopic)),
 	)
-
-	// Re-dispatch avec le moduleID de l'IA comme source
-	// → le Security Manager vérifie le clearance du module IA
 	if err := e.Dispatch(ev.Source, cmd.ParsedTopic, cmd.ParsedPayload); err != nil {
 		e.bus.Publish(api.Event{
 			Topic:         api.TopicAIResponse,
@@ -257,7 +228,6 @@ func (e *Engine) handleAICommand(ev api.Event) {
 		})
 		return
 	}
-
 	e.bus.Publish(api.Event{
 		Topic:         api.TopicAIResponse,
 		Source:        "engine",
@@ -271,7 +241,6 @@ func (e *Engine) handleAICommand(ev api.Event) {
 	})
 }
 
-// buildLogger construit un slog.Logger avec le niveau configuré.
 func buildLogger(level string) *slog.Logger {
 	var lvl slog.Level
 	switch level {

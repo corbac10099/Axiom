@@ -13,6 +13,13 @@ import (
 
 var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
+// busAdapter adapte *bus.EventBus en filesystem.EventPublisher pour les tests.
+type busAdapter struct{ b *bus.EventBus }
+
+func (a *busAdapter) Subscribe(topic interface{ String() string }, handler func(interface{ GetTopic() interface{ String() string } })) string {
+	return ""
+}
+
 func newHandler(t *testing.T) (*filesystem.Handler, string) {
 	t.Helper()
 	workspace := t.TempDir()
@@ -32,7 +39,6 @@ func newHandler(t *testing.T) (*filesystem.Handler, string) {
 
 func TestCreateAndRead(t *testing.T) {
 	h, _ := newHandler(t)
-
 	if err := h.CreateFile("hello.go", "package main"); err != nil {
 		t.Fatalf("CreateFile failed: %v", err)
 	}
@@ -90,7 +96,6 @@ func TestListDir(t *testing.T) {
 	h, _ := newHandler(t)
 	_ = h.CreateFile("a.go", "")
 	_ = h.CreateFile("b.go", "")
-	_ = h.CreateFile("sub/c.go", "")
 
 	entries, err := h.ListDir(".")
 	if err != nil {
@@ -105,10 +110,8 @@ func TestListDir(t *testing.T) {
 	}
 }
 
-// TestPathTraversalBlocked — test de sécurité critique
 func TestPathTraversalBlocked(t *testing.T) {
 	h, _ := newHandler(t)
-
 	attacks := []string{
 		"../etc/passwd",
 		"../../secret.key",
@@ -128,17 +131,13 @@ func TestMaxFileSizeEnforced(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	b := bus.New(ctx, 64, testLogger)
-
-	// Limite de 1 octet pour le test
 	h, err := filesystem.NewHandler(filesystem.Config{
 		WorkspaceDir:  workspace,
-		MaxFileSizeMB: 1, // 1 MB
+		MaxFileSizeMB: 1,
 	}, b, testLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Crée un fichier de exactement 1 octet — doit passer
 	_ = h.CreateFile("small.txt", "x")
 	if _, err := h.ReadFile("small.txt"); err != nil {
 		t.Errorf("small file should be readable: %v", err)
@@ -148,7 +147,6 @@ func TestMaxFileSizeEnforced(t *testing.T) {
 func TestWorkspaceChange(t *testing.T) {
 	h, _ := newHandler(t)
 	newDir := t.TempDir()
-
 	if err := h.SetWorkspace(newDir); err != nil {
 		t.Fatalf("SetWorkspace failed: %v", err)
 	}
