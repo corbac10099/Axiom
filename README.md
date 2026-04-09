@@ -845,4 +845,4 @@ Axiom est sous licence **MIT**. Libre d'usage commerciale et personnelle.
 ---
 
 **Axiom v0.2.0-alpha** — Modular Software Engineering Platform  
-Maintenance: Romain Delassus & Axiom Core Team
+Maintenance: Romain Laffont & Axiom Core Team
