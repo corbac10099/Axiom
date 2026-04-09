@@ -1,37 +1,10 @@
-// Package aiassistant implémente le module IA d'Axiom.
-//
-// Il sert de pont entre le LLM externe (local ou cloud)
-// et le moteur Axiom via l'Event Bus.
-//
-// Providers supportés:
-// - ollama         : Ollama local (http://localhost:11434)
-// - llama_cpp      : llama.cpp server (http://localhost:8000)
-// - mistral        : Mistral API cloud (api.mistral.ai)
-// - openai         : OpenAI API (api.openai.com)
-// - anthropic      : Claude API (api.anthropic.com)
-// - groq           : Groq API (api.groq.com)
-// - local-cortex   : LocalAI / Cortex avec auto-download
-//
-// Flux d'une requête IA :
-//
-//	Utilisateur frappe Ctrl+Space
-//	→ Module envoie requête au LLM (via HTTP/streaming)
-//	→ LLM retourne texte structuré (commandes Axiom + réponse)
-//	→ Parser extrait les commandes (FILE_CREATE, UI_SET_THEME, etc.)
-//	→ Chaque commande est dispatchée via engine.Dispatch()
-//	→ Résultat renvoyé au LLM comme contexte (loop d'agentivité)
 package aiassistant
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/axiom-ide/axiom/api"
 	"github.com/axiom-ide/axiom/core/module"
@@ -39,25 +12,17 @@ import (
 	"github.com/axiom-ide/axiom/pkg/uid"
 )
 
-// ─────────────────────────────────────────────
-// CONFIG DU MODULE
-// ─────────────────────────────────────────────
-
 // Config est la configuration du module IA.
 type Config struct {
 	// Provider : "ollama" | "llama_cpp" | "mistral" | "openai" | "anthropic" | "groq" | "none"
 	Provider    string
-	BaseURL     string  // ex: "http://localhost:11434" pour Ollama
-	ModelID     string  // ex: "mistral:7b" pour Ollama, "gpt-4" pour OpenAI
-	APIKey      string  // clé API (Mistral, OpenAI, Anthropic, Groq)
+	BaseURL     string
+	ModelID     string
+	APIKey      string
 	MaxTokens   int
 	Temperature float64
 	TimeoutSecs int
 }
-
-// ─────────────────────────────────────────────
-// MODULE IA
-// ─────────────────────────────────────────────
 
 // AIAssistantModule est le module IA in-process d'Axiom.
 type AIAssistantModule struct {
@@ -66,7 +31,7 @@ type AIAssistantModule struct {
 	provider LLMProvider
 }
 
-// New crée une instance du module IA.
+// New cree une instance du module IA.
 func New(cfg Config, logger *slog.Logger) *AIAssistantModule {
 	provider := NewLLMProvider(cfg)
 	return &AIAssistantModule{
@@ -81,7 +46,7 @@ func New(cfg Config, logger *slog.Logger) *AIAssistantModule {
 	}
 }
 
-// Init câble le module sur le bus.
+// Init cable le module sur le bus.
 func (m *AIAssistantModule) Init(ctx context.Context, d module.Dispatcher, s module.Subscriber) error {
 	m.BaseInit(ctx, d, s)
 
@@ -104,30 +69,26 @@ func (m *AIAssistantModule) Init(ctx context.Context, d module.Dispatcher, s mod
 	return nil
 }
 
-// Stop arrête proprement le module.
+// Stop arrete proprement le module.
 func (m *AIAssistantModule) Stop() error {
 	return m.BaseStop()
 }
 
-// ─────────────────────────────────────────────
-// QUERY — Interface publique du module
-// ─────────────────────────────────────────────
-
-// QueryResult est le résultat d'une requête au LLM.
+// QueryResult est le resultat d'une requete au LLM.
 type QueryResult struct {
-	RawResponse  string         // texte brut retourné par le LLM
-	Commands     []ParsedCommand // commandes Axiom extraites
-	ThinkingText string         // réponse textuelle (hors commandes)
+	RawResponse  string
+	Commands     []ParsedCommand
+	ThinkingText string
 }
 
-// ParsedCommand est une commande Axiom extraite de la réponse du LLM.
+// ParsedCommand est une commande Axiom extraite de la reponse du LLM.
 type ParsedCommand struct {
-	Raw     string        // texte brut de la commande
-	Topic   api.Topic     // Topic Axiom résolu
-	Payload interface{}   // payload structuré
+	Raw     string
+	Topic   api.Topic
+	Payload interface{}
 }
 
-// Query envoie un prompt au LLM, parse la réponse, et dispatche les commandes.
+// Query envoie un prompt au LLM, parse la reponse, et dispatche les commandes.
 func (m *AIAssistantModule) Query(ctx context.Context, userPrompt string, codeContext string) (QueryResult, error) {
 	systemPrompt := buildSystemPrompt()
 	fullPrompt := buildUserPrompt(userPrompt, codeContext)
@@ -143,8 +104,6 @@ func (m *AIAssistantModule) Query(ctx context.Context, userPrompt string, codeCo
 		m.Logger().Error("ai: LLM query failed", slog.String("error", err.Error()))
 		return QueryResult{}, fmt.Errorf("ai: LLM query failed: %w", err)
 	}
-
-	m.Logger().Debug("ai: response received", slog.Int("response_len", len(rawResponse)))
 
 	result := parseResponse(rawResponse)
 
@@ -167,18 +126,11 @@ func (m *AIAssistantModule) Query(ctx context.Context, userPrompt string, codeCo
 	return result, nil
 }
 
-// ─────────────────────────────────────────────
-// COMMAND PARSER
-// ─────────────────────────────────────────────
-
-// parseResponse extrait les commandes Axiom d'une réponse LLM.
-//
-// Format attendu :
-//	<axiom:command>FILE_CREATE path/to/file.go package main\n\nfunc main(){}</axiom:command>
+// parseResponse extrait les commandes Axiom d'une reponse LLM.
 func parseResponse(raw string) QueryResult {
 	result := QueryResult{RawResponse: raw}
 
-	const openTag = "<axiom:command>"
+	const openTag  = "<axiom:command>"
 	const closeTag = "</axiom:command>"
 
 	remaining := raw
@@ -212,7 +164,7 @@ func parseResponse(raw string) QueryResult {
 	return result
 }
 
-// parseCommand convertit une commande brute en ParsedCommand structuré.
+// parseCommand convertit une commande brute en ParsedCommand structure.
 func parseCommand(raw string) (ParsedCommand, bool) {
 	parts := strings.SplitN(raw, " ", 3)
 	if len(parts) == 0 {
@@ -295,38 +247,22 @@ func parseCommand(raw string) (ParsedCommand, bool) {
 	return ParsedCommand{}, false
 }
 
-// ─────────────────────────────────────────────
-// PROMPTS
-// ─────────────────────────────────────────────
-
 func buildSystemPrompt() string {
 	return `You are Axiom AI, an intelligent coding assistant integrated into the Axiom IDE.
 
 You can interact with the IDE by emitting commands inside <axiom:command> tags.
 
 Available commands:
-FILE_CREATE <path> <content>     — Create a new file
-FILE_WRITE <path> <content>      — Overwrite a file
-FILE_READ <path>                 — Read a file
-UI_SET_THEME <theme_id>          — Change theme (dark/light/monokai/solarized)
-UI_OPEN_PANEL <panel_id> <title> — Open a UI panel
-
-Rules:
-- Emit commands only when explicitly asked
-- Think step by step before emitting commands
-- Explain actions in plain text OUTSIDE command tags
-- Never emit commands that could harm the system
-- All commands are security-checked; actions outside clearance are rejected
-
-Example:
-I'll create the main.go file for you.
-<axiom:command>FILE_CREATE main.go package main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, Axiom!")\n}</axiom:command>
-The file has been created.`
+FILE_CREATE <path> <content>
+FILE_WRITE  <path> <content>
+FILE_READ   <path>
+UI_SET_THEME <theme_id>
+UI_OPEN_PANEL <panel_id> <title>`
 }
 
 func buildUserPrompt(userMessage, codeContext string) string {
 	if codeContext == "" {
 		return userMessage
 	}
-	return fmt.Sprintf("Code context:\n```\n%s\n```\n\nUser request: %s", codeContext, userMessage)
+	return fmt.Sprintf("Code context:\n%s\n\nUser request: %s", codeContext, userMessage)
 }
