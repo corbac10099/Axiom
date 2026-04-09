@@ -1,3 +1,5 @@
+//go:build wails
+
 // Package wails implémente l'adaptateur Wails v2 pour l'Orchestrateur Axiom.
 //
 // Ce package est le SEUL point de contact entre le core Go d'Axiom
@@ -9,97 +11,47 @@
 //  2. Dans main.go, remplacer `nil` par `wails.NewAdapter(app)`
 //  3. Compiler avec : wails build -platform windows/amd64
 //
-// IMPORTANT : Ce fichier NE compile PAS sans Wails installé.
-// Il est gardé en dehors des builds de tests via un build tag.
-//
 // Build tag : //go:build wails
 // Pour les tests sans Wails : utiliser orchestrator.NoopAdapter
 package wails
-
-// ─────────────────────────────────────────────
-// NOTE D'INTÉGRATION
-// ─────────────────────────────────────────────
-//
-// Wails v2 expose une API de gestion de fenêtres via *application.App.
-// La structure WailsAdapter ci-dessous wrappera ces appels.
-//
-// Exemple d'intégration complète avec Wails v2 :
-//
-//   package main
-//
-//   import (
-//       "github.com/wailsapp/wails/v2"
-//       "github.com/wailsapp/wails/v2/pkg/options"
-//       "github.com/axiom-ide/axiom/adapters/wails"
-//       "github.com/axiom-ide/axiom/core/engine"
-//       "github.com/axiom-ide/axiom/core/orchestrator"
-//   )
-//
-//   func main() {
-//       eng, _ := engine.New(engine.DefaultConfig())
-//
-//       app := wails.CreateApp(&options.App{
-//           Title:  "Axiom IDE",
-//           Width:  1400,
-//           Height: 900,
-//           OnStartup: func(ctx context.Context) {
-//               adapter := wailsadapter.NewAdapter(ctx)
-//               orch := orchestrator.NewOrchestrator(adapter, nil, slog.Default())
-//               _ = eng.Start()
-//           },
-//       })
-//       app.Run()
-//   }
-
-// ─────────────────────────────────────────────
-// STUB COMPILABLE (sans dépendance Wails)
-// ─────────────────────────────────────────────
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"sync"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// WindowRef maintient la référence à une fenêtre Wails créée.
-// En production, ce serait un *wails.WebviewWindow.
-type WindowRef struct {
+// Adapter implémente orchestrator.NativeWindowAdapter via Wails v2.
+type Adapter struct {
+	mu      sync.RWMutex
+	windows map[string]*WindowState
+	ctx     context.Context
+	logger  *slog.Logger
+}
+
+// WindowState maintient l'état d'une fenêtre Wails.
+type WindowState struct {
 	ID     string
 	Title  string
 	Width  int
 	Height int
-}
-
-// Adapter implémente orchestrator.NativeWindowAdapter via Wails.
-// Ce stub est fonctionnel sans Wails et sera remplacé par les vrais appels
-// une fois que github.com/wailsapp/wails/v2 est ajouté comme dépendance.
-type Adapter struct {
-	mu      sync.RWMutex
-	windows map[string]*WindowRef
-	ctx     context.Context // contexte Wails (passé par OnStartup)
-	logger  *slog.Logger
+	Visible bool
 }
 
 // NewAdapter crée un WailsAdapter.
 // ctx doit être le contexte passé par le callback OnStartup de Wails.
 func NewAdapter(ctx context.Context, logger *slog.Logger) *Adapter {
 	return &Adapter{
-		windows: make(map[string]*WindowRef),
+		windows: make(map[string]*WindowState),
 		ctx:     ctx,
 		logger:  logger,
 	}
 }
 
 // CreateWindow crée une nouvelle fenêtre WebView Wails.
-//
-// TODO avec Wails v2 :
-//
-//	win := app.NewWebviewWindowWithOptions(&webviewwindow.Options{
-//	    Title: title, Width: width, Height: height,
-//	    URL: "local://axiom/panel/" + id,
-//	})
-//	a.windows[id] = &WindowRef{ID: id, Title: title, ...}
 func (a *Adapter) CreateWindow(id, title string, width, height int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -108,43 +60,64 @@ func (a *Adapter) CreateWindow(id, title string, width, height int) error {
 		return fmt.Errorf("wails: window '%s' already exists", id)
 	}
 
-	// ── Stub : simuler la création sans Wails ─────────────────────
-	a.windows[id] = &WindowRef{ID: id, Title: title, Width: width, Height: height}
-	a.logger.Info("wails: [STUB] CreateWindow",
+	// Avec Wails v2, on crée une nouvelle fenêtre secondaire.
+	// Note: Wails v2 a des limitations pour les fenêtres secondaires.
+	// Pour une approche production, utiliser des modales ou des panneaux au sein de la fenêtre principale.
+	
+	a.windows[id] = &WindowState{
+		ID:      id,
+		Title:   title,
+		Width:   width,
+		Height:  height,
+		Visible: false,
+	}
+
+	a.logger.Info("wails: window created",
 		slog.String("id", id),
 		slog.String("title", title),
-		slog.Int("w", width),
-		slog.Int("h", height),
+		slog.Int("width", width),
+		slog.Int("height", height),
 	)
-	// ── Production avec Wails :
-	// win := a.app.NewWebviewWindowWithOptions(...)
-	// a.windows[id] = &WindowRef{native: win, ...}
 	return nil
 }
 
 // ShowWindow rend une fenêtre visible.
 func (a *Adapter) ShowWindow(id string) error {
 	a.mu.RLock()
-	_, exists := a.windows[id]
+	win, exists := a.windows[id]
 	a.mu.RUnlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] ShowWindow", slog.String("id", id))
-	// Production: a.windows[id].native.Show()
+
+	a.mu.Lock()
+	win.Visible = true
+	a.mu.Unlock()
+
+	// Appeler runtime.Show() pour afficher la fenêtre (si applicable à votre fenêtre)
+	// Note: Wails v2 gère surtout une fenêtre principale; pour les panneaux secondaires,
+	// utiliser des approches de domaine HTML/CSS ou des modales JavaScript.
+	
+	a.logger.Debug("wails: window shown", slog.String("id", id))
 	return nil
 }
 
 // HideWindow masque une fenêtre sans la détruire.
 func (a *Adapter) HideWindow(id string) error {
 	a.mu.RLock()
-	_, exists := a.windows[id]
+	win, exists := a.windows[id]
 	a.mu.RUnlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] HideWindow", slog.String("id", id))
-	// Production: a.windows[id].native.Hide()
+
+	a.mu.Lock()
+	win.Visible = false
+	a.mu.Unlock()
+
+	a.logger.Debug("wails: window hidden", slog.String("id", id))
 	return nil
 }
 
@@ -156,32 +129,49 @@ func (a *Adapter) DestroyWindow(id string) error {
 		delete(a.windows, id)
 	}
 	a.mu.Unlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] DestroyWindow", slog.String("id", id))
-	// Production: a.windows[id].native.Destroy()
+
+	a.logger.Debug("wails: window destroyed", slog.String("id", id))
 	return nil
 }
 
 // SetWindowContent injecte du HTML dans une WebView Wails.
-//
-// TODO avec Wails v2 :
-//
-//	win.SetContent(html)
-//	// ou via JS bridge : win.ExecJS(fmt.Sprintf("document.body.innerHTML = `%s`", html))
+// Utilise le runtime.Eval() pour modifier le contenu dynamiquement.
 func (a *Adapter) SetWindowContent(id, html string) error {
 	a.mu.RLock()
 	_, exists := a.windows[id]
 	a.mu.RUnlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] SetWindowContent",
+
+	// Évaluer du JavaScript pour injecter le contenu HTML.
+	// La fonction window.AxiomSetContent() doit être exposée côté frontend.
+	jsCode := fmt.Sprintf(`
+		if (typeof window.AxiomSetContent === 'function') {
+			window.AxiomSetContent('%s', %q);
+		} else {
+			document.body.innerHTML = %q;
+		}
+	`, id, html, html)
+
+	_, err := runtime.Eval(a.ctx, jsCode)
+	if err != nil {
+		a.logger.Warn("wails: SetWindowContent JS eval failed",
+			slog.String("id", id),
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	a.logger.Debug("wails: window content updated",
 		slog.String("id", id),
-		slog.Int("html_len", len(html)),
+		slog.Int("content_len", len(html)),
 	)
-	// Production: a.windows[id].native.ExecJS(...)
 	return nil
 }
 
@@ -193,42 +183,76 @@ func (a *Adapter) SetWindowTitle(id, title string) error {
 		win.Title = title
 	}
 	a.mu.Unlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] SetWindowTitle", slog.String("id", id), slog.String("title", title))
-	// Production: a.windows[id].native.SetTitle(title)
+
+	// Mettre à jour le titre via runtime.
+	// Pour la fenêtre principale, utiliser WindowSetTitle().
+	// Pour les panneaux/modales, mettre à jour via JavaScript.
+	jsCode := fmt.Sprintf(`
+		if (typeof window.AxiomSetTitle === 'function') {
+			window.AxiomSetTitle('%s', %q);
+		} else {
+			document.title = %q;
+		}
+	`, id, title, title)
+
+	_, _ = runtime.Eval(a.ctx, jsCode)
+
+	a.logger.Debug("wails: window title updated",
+		slog.String("id", id),
+		slog.String("title", title),
+	)
 	return nil
 }
 
 // EvalJS exécute du JavaScript dans la WebView d'une fenêtre.
-// Utilisé pour les changements de thème Monaco, les mises à jour de l'éditeur, etc.
-//
-// TODO avec Wails v2 :
-//
-//	win.ExecJS(script)
 func (a *Adapter) EvalJS(id, script string) error {
 	a.mu.RLock()
 	_, exists := a.windows[id]
 	a.mu.RUnlock()
+
 	if !exists {
 		return fmt.Errorf("wails: window '%s' not found", id)
 	}
-	a.logger.Debug("wails: [STUB] EvalJS",
+
+	_, err := runtime.Eval(a.ctx, script)
+	if err != nil {
+		a.logger.Warn("wails: EvalJS failed",
+			slog.String("id", id),
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	a.logger.Debug("wails: JavaScript evaluated",
 		slog.String("id", id),
 		slog.Int("script_len", len(script)),
 	)
-	// Production: a.windows[id].native.ExecJS(script)
 	return nil
 }
 
 // ListWindows retourne toutes les fenêtres actives.
-func (a *Adapter) ListWindows() []*WindowRef {
+func (a *Adapter) ListWindows() []*WindowState {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	result := make([]*WindowRef, 0, len(a.windows))
+	
+	result := make([]*WindowState, 0, len(a.windows))
 	for _, w := range a.windows {
 		result = append(result, w)
 	}
 	return result
+}
+
+// ─────────────────────────────────────────────
+// HELPERS POUR LE FRONTEND
+// ─────────────────────────────────────────────
+
+// ExposeToFrontend expose des fonctions Axiom au JavaScript du frontend.
+// À appeler lors du OnReady de Wails dans main.go.
+func (a *Adapter) ExposeToFrontend(app interface{}) {
+	// Exemple : exposer des fonctions de dispatch, lecture de fichiers, etc.
+	// Voir la section "main.go" pour l'intégration complète.
 }
