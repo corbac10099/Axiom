@@ -1,0 +1,660 @@
+/* ═══════════════════════════════════════════════════════════════
+   AXIOM UI COMPONENTS LIBRARY v1.0
+   
+   Composants réutilisables pour construire des interfaces rapidement
+   
+   Usage:
+   <axiom-button>Click me</axiom-button>
+   <axiom-panel title="My Panel">Content</axiom-panel>
+   <axiom-input placeholder="Type..."></axiom-input>
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   VARIABLES DE DESIGN (Theme)
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+    /* Colors */
+    --axiom-bg-primary: #1e1e1e;
+    --axiom-bg-secondary: #252526;
+    --axiom-bg-tertiary: #2d2d30;
+    
+    --axiom-fg-primary: #d4d4d4;
+    --axiom-fg-secondary: #858585;
+    --axiom-fg-tertiary: #6a9955;
+    
+    --axiom-accent: #007acc;
+    --axiom-accent-hover: #005a9c;
+    --axiom-accent-light: #0098ff;
+    
+    --axiom-danger: #f44747;
+    --axiom-warning: #dcdcaa;
+    --axiom-success: #4ec9b0;
+    
+    --axiom-border: #3e3e42;
+    --axiom-border-light: #555555;
+    
+    /* Spacing */
+    --axiom-spacing-xs: 4px;
+    --axiom-spacing-sm: 8px;
+    --axiom-spacing-md: 16px;
+    --axiom-spacing-lg: 24px;
+    --axiom-spacing-xl: 32px;
+    
+    /* Typography */
+    --axiom-font-mono: 'Fira Code', 'Courier New', monospace;
+    --axiom-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    --axiom-font-size-sm: 12px;
+    --axiom-font-size-md: 14px;
+    --axiom-font-size-lg: 16px;
+    --axiom-font-size-xl: 18px;
+    
+    /* Border & Shadow */
+    --axiom-border-radius: 4px;
+    --axiom-border-radius-lg: 8px;
+    --axiom-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --axiom-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark theme variants */
+:root.theme-dark {
+    --axiom-bg-primary: #1e1e1e;
+    --axiom-bg-secondary: #252526;
+}
+
+:root.theme-light {
+    --axiom-bg-primary: #ffffff;
+    --axiom-bg-secondary: #f3f3f3;
+    --axiom-fg-primary: #333333;
+    --axiom-fg-secondary: #666666;
+    --axiom-border: #d0d0d0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESET GLOBAL
+   ───────────────────────────────────────────────────────────────── */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--axiom-font-sans);
+    font-size: var(--axiom-font-size-md);
+    color: var(--axiom-fg-primary);
+    background: var(--axiom-bg-primary);
+    line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-button — Bouton réutilisable
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-button, .axiom-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--axiom-spacing-sm);
+    
+    padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+    background: var(--axiom-accent);
+    color: white;
+    border: 1px solid var(--axiom-accent);
+    border-radius: var(--axiom-border-radius);
+    
+    font-family: var(--axiom-font-sans);
+    font-size: var(--axiom-font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+    
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+axiom-button:hover, .axiom-button:hover {
+    background: var(--axiom-accent-hover);
+    box-shadow: 0 0 8px rgba(0, 122, 204, 0.3);
+}
+
+axiom-button:active, .axiom-button:active {
+    transform: scale(0.98);
+}
+
+axiom-button:disabled, .axiom-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Variantes */
+axiom-button.secondary, .axiom-button.secondary {
+    background: var(--axiom-bg-tertiary);
+    color: var(--axiom-fg-primary);
+    border: 1px solid var(--axiom-border);
+}
+
+axiom-button.secondary:hover, .axiom-button.secondary:hover {
+    background: var(--axiom-border-light);
+}
+
+axiom-button.danger, .axiom-button.danger {
+    background: var(--axiom-danger);
+    border-color: var(--axiom-danger);
+}
+
+axiom-button.danger:hover, .axiom-button.danger:hover {
+    background: #e03737;
+}
+
+axiom-button.success, .axiom-button.success {
+    background: var(--axiom-success);
+    border-color: var(--axiom-success);
+    color: #000;
+}
+
+/* Size variants */
+axiom-button.small, .axiom-button.small {
+    padding: var(--axiom-spacing-xs) var(--axiom-spacing-sm);
+    font-size: var(--axiom-font-size-sm);
+}
+
+axiom-button.large, .axiom-button.large {
+    padding: var(--axiom-spacing-md) var(--axiom-spacing-lg);
+    font-size: var(--axiom-font-size-lg);
+}
+
+axiom-button.full, .axiom-button.full {
+    width: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-input — Input réutilisable
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-input, .axiom-input,
+input[axiom-input],
+axiom-input input,
+textarea[axiom-input] {
+    width: 100%;
+    padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+    background: var(--axiom-bg-tertiary);
+    color: var(--axiom-fg-primary);
+    border: 1px solid var(--axiom-border);
+    border-radius: var(--axiom-border-radius);
+    
+    font-family: var(--axiom-font-sans);
+    font-size: var(--axiom-font-size-md);
+    
+    transition: border-color 0.2s ease;
+}
+
+axiom-input:focus, .axiom-input:focus,
+input[axiom-input]:focus,
+axiom-input input:focus,
+textarea[axiom-input]:focus {
+    outline: none;
+    border-color: var(--axiom-accent);
+    box-shadow: 0 0 8px rgba(0, 122, 204, 0.2);
+}
+
+axiom-input::placeholder, .axiom-input::placeholder,
+input[axiom-input]::placeholder,
+axiom-input input::placeholder,
+textarea[axiom-input]::placeholder {
+    color: var(--axiom-fg-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-panel — Panel conteneur
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-panel, .axiom-panel {
+    display: flex;
+    flex-direction: column;
+    
+    background: var(--axiom-bg-secondary);
+    border: 1px solid var(--axiom-border);
+    border-radius: var(--axiom-border-radius-lg);
+    
+    overflow: hidden;
+    box-shadow: var(--axiom-shadow);
+}
+
+axiom-panel[collapsible] .axiom-panel-header,
+.axiom-panel.collapsible .axiom-panel-header {
+    cursor: pointer;
+}
+
+axiom-panel .axiom-panel-header,
+.axiom-panel .axiom-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--axiom-spacing-md);
+    
+    padding: var(--axiom-spacing-md);
+    background: var(--axiom-bg-tertiary);
+    border-bottom: 1px solid var(--axiom-border);
+    
+    font-weight: 600;
+    font-size: var(--axiom-font-size-lg);
+    color: var(--axiom-fg-primary);
+}
+
+axiom-panel .axiom-panel-header:hover,
+.axiom-panel .axiom-panel-header:hover {
+    background: var(--axiom-border-light);
+}
+
+axiom-panel .axiom-panel-body,
+.axiom-panel .axiom-panel-body {
+    flex: 1;
+    padding: var(--axiom-spacing-md);
+    overflow-y: auto;
+}
+
+axiom-panel .axiom-panel-footer,
+.axiom-panel .axiom-panel-footer {
+    padding: var(--axiom-spacing-md);
+    background: var(--axiom-bg-tertiary);
+    border-top: 1px solid var(--axiom-border);
+    
+    display: flex;
+    gap: var(--axiom-spacing-sm);
+    justify-content: flex-end;
+}
+
+/* Size variants */
+axiom-panel.small, .axiom-panel.small {
+    max-width: 400px;
+}
+
+axiom-panel.medium, .axiom-panel.medium {
+    max-width: 600px;
+}
+
+axiom-panel.large, .axiom-panel.large {
+    max-width: 900px;
+}
+
+axiom-panel.fullscreen, .axiom-panel.fullscreen {
+    width: 100%;
+    height: 100vh;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-tabs — Navigation par onglets
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-tabs, .axiom-tabs {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+axiom-tabs .axiom-tabs-list,
+.axiom-tabs .axiom-tabs-list {
+    display: flex;
+    background: var(--axiom-bg-secondary);
+    border-bottom: 1px solid var(--axiom-border);
+    overflow-x: auto;
+}
+
+axiom-tabs .axiom-tab,
+.axiom-tabs .axiom-tab,
+[role="tab"] {
+    padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+    background: transparent;
+    color: var(--axiom-fg-secondary);
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: var(--axiom-font-sans);
+}
+
+axiom-tabs .axiom-tab:hover,
+.axiom-tabs .axiom-tab:hover,
+[role="tab"]:hover {
+    color: var(--axiom-fg-primary);
+}
+
+axiom-tabs .axiom-tab.active,
+.axiom-tabs .axiom-tab.active,
+[role="tab"][aria-selected="true"] {
+    color: var(--axiom-accent);
+    border-bottom-color: var(--axiom-accent);
+}
+
+axiom-tabs .axiom-tabs-content,
+.axiom-tabs .axiom-tabs-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+axiom-tabs .axiom-tab-panel,
+.axiom-tabs .axiom-tab-panel,
+[role="tabpanel"] {
+    display: none;
+    padding: var(--axiom-spacing-md);
+}
+
+axiom-tabs .axiom-tab-panel.active,
+.axiom-tabs .axiom-tab-panel.active,
+[role="tabpanel"][aria-hidden="false"] {
+    display: block;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-sidebar — Sidebar navigation
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-sidebar, .axiom-sidebar {
+    display: flex;
+    flex-direction: column;
+    
+    width: 300px;
+    background: var(--axiom-bg-secondary);
+    border-right: 1px solid var(--axiom-border);
+    
+    overflow-y: auto;
+}
+
+axiom-sidebar .axiom-sidebar-item,
+.axiom-sidebar .axiom-sidebar-item {
+    padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+    color: var(--axiom-fg-secondary);
+    cursor: pointer;
+    
+    transition: all 0.2s ease;
+    border-left: 2px solid transparent;
+}
+
+axiom-sidebar .axiom-sidebar-item:hover,
+.axiom-sidebar .axiom-sidebar-item:hover {
+    background: var(--axiom-bg-tertiary);
+    color: var(--axiom-fg-primary);
+}
+
+axiom-sidebar .axiom-sidebar-item.active,
+.axiom-sidebar .axiom-sidebar-item.active {
+    background: rgba(0, 122, 204, 0.1);
+    color: var(--axiom-accent);
+    border-left-color: var(--axiom-accent);
+}
+
+axiom-sidebar .axiom-sidebar-group,
+.axiom-sidebar .axiom-sidebar-group {
+    padding: var(--axiom-spacing-md) var(--axiom-spacing-md) var(--axiom-spacing-sm);
+    color: var(--axiom-fg-secondary);
+    font-size: var(--axiom-font-size-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-top: 1px solid var(--axiom-border);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-alert — Notifications/Alerts
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-alert, .axiom-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--axiom-spacing-md);
+    
+    padding: var(--axiom-spacing-md);
+    border-radius: var(--axiom-border-radius);
+    
+    font-size: var(--axiom-font-size-md);
+    border-left: 4px solid transparent;
+}
+
+axiom-alert.info, .axiom-alert.info {
+    background: rgba(0, 122, 204, 0.1);
+    color: var(--axiom-accent);
+    border-left-color: var(--axiom-accent);
+}
+
+axiom-alert.success, .axiom-alert.success {
+    background: rgba(78, 201, 176, 0.1);
+    color: var(--axiom-success);
+    border-left-color: var(--axiom-success);
+}
+
+axiom-alert.warning, .axiom-alert.warning {
+    background: rgba(220, 220, 170, 0.1);
+    color: var(--axiom-warning);
+    border-left-color: var(--axiom-warning);
+}
+
+axiom-alert.error, .axiom-alert.error {
+    background: rgba(244, 71, 71, 0.1);
+    color: var(--axiom-danger);
+    border-left-color: var(--axiom-danger);
+}
+
+axiom-alert .axiom-alert-close,
+.axiom-alert .axiom-alert-close {
+    margin-left: auto;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+axiom-alert .axiom-alert-close:hover,
+.axiom-alert .axiom-alert-close:hover {
+    opacity: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-badge — Badges/labels
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-badge, .axiom-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    padding: 2px 8px;
+    background: var(--axiom-accent);
+    color: white;
+    border-radius: 12px;
+    
+    font-size: var(--axiom-font-size-sm);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+axiom-badge.secondary, .axiom-badge.secondary {
+    background: var(--axiom-bg-tertiary);
+    color: var(--axiom-fg-secondary);
+}
+
+axiom-badge.success, .axiom-badge.success {
+    background: var(--axiom-success);
+    color: #000;
+}
+
+axiom-badge.warning, .axiom-badge.warning {
+    background: var(--axiom-warning);
+    color: #000;
+}
+
+axiom-badge.danger, .axiom-badge.danger {
+    background: var(--axiom-danger);
+    color: white;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-code — Code viewer/editor
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-code, .axiom-code {
+    display: block;
+    
+    background: var(--axiom-bg-tertiary);
+    color: var(--axiom-fg-primary);
+    border: 1px solid var(--axiom-border);
+    border-radius: var(--axiom-border-radius);
+    
+    padding: var(--axiom-spacing-md);
+    font-family: var(--axiom-font-mono);
+    font-size: var(--axiom-font-size-sm);
+    line-height: 1.6;
+    
+    overflow-x: auto;
+    white-space: pre;
+}
+
+axiom-code code, .axiom-code code {
+    font-family: var(--axiom-font-mono);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   axiom-separator — Séparateur
+   ───────────────────────────────────────────────────────────────── */
+
+axiom-separator, .axiom-separator {
+    display: block;
+    height: 1px;
+    background: var(--axiom-border);
+    margin: var(--axiom-spacing-md) 0;
+}
+
+axiom-separator.vertical, .axiom-separator.vertical {
+    display: inline-block;
+    width: 1px;
+    height: var(--axiom-spacing-lg);
+    margin: 0 var(--axiom-spacing-md);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LAYOUT HELPERS
+   ───────────────────────────────────────────────────────────────── */
+
+.axiom-flex {
+    display: flex;
+}
+
+.axiom-flex-col {
+    flex-direction: column;
+}
+
+.axiom-flex-row {
+    flex-direction: row;
+}
+
+.axiom-flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.axiom-gap-sm { gap: var(--axiom-spacing-sm); }
+.axiom-gap-md { gap: var(--axiom-spacing-md); }
+.axiom-gap-lg { gap: var(--axiom-spacing-lg); }
+
+.axiom-p-sm { padding: var(--axiom-spacing-sm); }
+.axiom-p-md { padding: var(--axiom-spacing-md); }
+.axiom-p-lg { padding: var(--axiom-spacing-lg); }
+
+.axiom-m-sm { margin: var(--axiom-spacing-sm); }
+.axiom-m-md { margin: var(--axiom-spacing-md); }
+.axiom-m-lg { margin: var(--axiom-spacing-lg); }
+
+.axiom-text-center { text-align: center; }
+.axiom-text-right { text-align: right; }
+.axiom-text-left { text-align: left; }
+
+.axiom-text-sm { font-size: var(--axiom-font-size-sm); }
+.axiom-text-md { font-size: var(--axiom-font-size-md); }
+.axiom-text-lg { font-size: var(--axiom-font-size-lg); }
+
+.axiom-font-mono { font-family: var(--axiom-font-mono); }
+.axiom-font-bold { font-weight: 600; }
+
+.axiom-text-muted { color: var(--axiom-fg-secondary); }
+.axiom-text-accent { color: var(--axiom-accent); }
+.axiom-text-success { color: var(--axiom-success); }
+.axiom-text-danger { color: var(--axiom-danger); }
+
+.axiom-bg-secondary { background: var(--axiom-bg-secondary); }
+.axiom-bg-tertiary { background: var(--axiom-bg-tertiary); }
+
+.axiom-border { border: 1px solid var(--axiom-border); }
+.axiom-border-top { border-top: 1px solid var(--axiom-border); }
+.axiom-border-bottom { border-bottom: 1px solid var(--axiom-border); }
+
+.axiom-rounded { border-radius: var(--axiom-border-radius); }
+.axiom-rounded-lg { border-radius: var(--axiom-border-radius-lg); }
+
+.axiom-shadow { box-shadow: var(--axiom-shadow); }
+.axiom-shadow-lg { box-shadow: var(--axiom-shadow-lg); }
+
+.axiom-w-full { width: 100%; }
+.axiom-h-full { height: 100%; }
+
+.axiom-hidden { display: none; }
+.axiom-visible { display: block; }
+
+.axiom-overflow-auto { overflow: auto; }
+.axiom-overflow-hidden { overflow: hidden; }
+
+.axiom-transition {
+    transition: all 0.2s ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    axiom-sidebar, .axiom-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--axiom-border);
+    }
+    
+    axiom-button, .axiom-button {
+        width: 100%;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ANIMATIONS
+   ───────────────────────────────────────────────────────────────── */
+
+@keyframes axiom-fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes axiom-slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes axiom-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.axiom-animate-in {
+    animation: axiom-fadeIn 0.3s ease;
+}
+
+.axiom-animate-slide {
+    animation: axiom-slideIn 0.3s ease;
+}
+
+.axiom-animate-spin {
+    animation: axiom-spin 1s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   END OF AXIOM UI COMPONENTS LIBRARY
+   ═══════════════════════════════════════════════════════════════ */

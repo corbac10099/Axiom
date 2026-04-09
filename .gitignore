@@ -1,0 +1,247 @@
+# ═══════════════════════════════════════════════════════════════
+# AXIOM — .gitignore
+# ═══════════════════════════════════════════════════════════════
+# Évite de tracker les fichiers temporaires, builds, et caches
+# qui alourdiraient le repository Git.
+
+# ─────────────────────────────────────────────────────────────────
+# 1. BINAIRES COMPILÉS & EXECUTABLES
+# ─────────────────────────────────────────────────────────────────
+
+# Binaires Go
+axiom
+axiom.exe
+axiom-darwin
+axiom-linux
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output Wails (UI native)
+wails/
+frontend/dist/
+frontend/build/
+
+# Objets compilés
+*.o
+*.a
+*.so
+*.o
+*.out
+
+# ─────────────────────────────────────────────────────────────────
+# 2. CACHES & DÉPENDANCES GO
+# ─────────────────────────────────────────────────────────────────
+
+# Go module cache
+vendor/
+go.sum.backup
+
+# go test cache
+.go/
+
+# Fichiers temporaires Go
+*.test
+*.prof
+*.pprof
+
+# ─────────────────────────────────────────────────────────────────
+# 3. AXIOM-SPECIFIC
+# ─────────────────────────────────────────────────────────────────
+
+# Configuration locale (ne pas tracker les clés API personnelles)
+.axiom/
+.axiom_cache/
+axiom.config.json
+workspace_state.json
+.axiom/workspace_state.json
+
+# Workspace local
+workspace/
+.workspace/
+
+# Fichiers de logs
+*.log
+logs/
+
+# Fichiers générés par les modules
+modules/**/plugin.so
+modules/**/plugin.so.backup
+
+# ─────────────────────────────────────────────────────────────────
+# 4. IDE & ÉDITEURS
+# ─────────────────────────────────────────────────────────────────
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim/Neovim
+.vim/
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Nano
+.nano_history
+
+# ─────────────────────────────────────────────────────────────────
+# 5. SYSTÈME D'EXPLOITATION
+# ─────────────────────────────────────────────────────────────────
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+
+# ─────────────────────────────────────────────────────────────────
+# 6. FICHIERS TEMPORAIRES & TESTS
+# ─────────────────────────────────────────────────────────────────
+
+# Coverage reports
+coverage.out
+coverage.html
+*.coverprofile
+coverage/
+
+# Benchmark results
+bench_results.txt
+
+# Fichiers temporaires
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.swp
+
+# Test artifacts
+test_output.txt
+test_results.json
+
+# ─────────────────────────────────────────────────────────────────
+# 7. NODE_MODULES & FRONTEND (si intégration future)
+# ─────────────────────────────────────────────────────────────────
+
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+
+# ─────────────────────────────────────────────────────────────────
+# 8. DOCKER & CONTAINERIZATION
+# ─────────────────────────────────────────────────────────────────
+
+# Docker
+.dockerignore
+.docker/
+*.docker
+
+# ─────────────────────────────────────────────────────────────────
+# 9. SECRETS & FICHIERS SENSIBLES
+# ─────────────────────────────────────────────────────────────────
+
+# Clés API et secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secret*
+secrets/
+
+# Configuration sensible
+*.config.local
+*_local.json
+
+# ─────────────────────────────────────────────────────────────────
+# 10. OLLAMA & MODÈLES IA (très volumineux!)
+# ─────────────────────────────────────────────────────────────────
+
+# Modèles Ollama (généralement stockés dans ~/.ollama)
+models/
+*.gguf
+*.ggml
+*.bin
+llm_models/
+
+# ─────────────────────────────────────────────────────────────────
+# 11. FICHIERS D'ETAT PERSISTANTS (workspace-specific)
+# ─────────────────────────────────────────────────────────────────
+
+# État de l'interface utilisateur
+.workspace_state
+ui_state.json
+window_state.json
+
+# Caches de fichiers
+*.axiom_cache
+file_cache/
+
+# ─────────────────────────────────────────────────────────────────
+# 12. FICHIERS DE BUILD SPÉCIFIQUES
+# ─────────────────────────────────────────────────────────────────
+
+# Build directories
+build/
+dist/
+bin/
+out/
+
+# CGO artifacts
+_cgo_*
+
+# C extensions
+*.c
+*.h
+
+# ═══════════════════════════════════════════════════════════════
+# EXCEPTIONS (fichiers à tracker malgré les patterns ci-dessus)
+# ═══════════════════════════════════════════════════════════════
+
+# Ne pas ignorer les fichiers Go source
+!**/*.go
+
+# Ne pas ignorer les manifests modules
+!**/manifest.json
+
+# Ne pas ignorer les fichiers de config d'exemple
+!example_config.json
+!example/.axiom/config.json
+
+# ═══════════════════════════════════════════════════════════════

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axiom IDE v0.3.0</title>
+    
+    <!-- Axiom UI Components Library -->
+    <link rel="stylesheet" href="./axiom-ui-components.css">
+    <script src="./axiom-ui-components.js" defer></script>
+    
+    <style>
+        /* Layout principal */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .axiom-container {
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .axiom-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .axiom-toolbar {
+            background: var(--axiom-bg-secondary);
+            border-bottom: 1px solid var(--axiom-border);
+            padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--axiom-spacing-md);
+            height: 48px;
+        }
+
+        .axiom-toolbar-group {
+            display: flex;
+            gap: var(--axiom-spacing-sm);
+            align-items: center;
+        }
+
+        .axiom-toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background: var(--axiom-border);
+        }
+
+        /* Editor area */
+        .axiom-editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .axiom-editor-tabs {
+            display: flex;
+            background: var(--axiom-bg-secondary);
+            border-bottom: 1px solid var(--axiom-border);
+            overflow-x: auto;
+        }
+
+        .axiom-editor-tabs .axiom-editor-tab {
+            padding: var(--axiom-spacing-sm) var(--axiom-spacing-md);
+            background: transparent;
+            color: var(--axiom-fg-secondary);
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .axiom-editor-tabs .axiom-editor-tab:hover {
+            color: var(--axiom-fg-primary);
+        }
+
+        .axiom-editor-tabs .axiom-editor-tab.active {
+            color: var(--axiom-accent);
+            border-bottom-color: var(--axiom-accent);
+        }
+
+        .axiom-editor-content {
+            flex: 1;
+            padding: var(--axiom-spacing-md);
+            overflow: auto;
+            font-family: var(--axiom-font-mono);
+        }
+
+        /* Status bar */
+        .axiom-statusbar {
+            background: var(--axiom-accent);
+            color: white;
+            padding: 4px var(--axiom-spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: var(--axiom-font-size-sm);
+            height: 32px;
+        }
+
+        .axiom-statusbar-item {
+            display: flex;
+            align-items: center;
+            gap: var(--axiom-spacing-sm);
+        }
+
+        /* File explorer */
+        .axiom-file-tree {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .axiom-file-tree-item {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            font-size: var(--axiom-font-size-sm);
+        }
+
+        .axiom-file-tree-item:hover {
+            background: var(--axiom-bg-tertiary);
+        }
+
+        .axiom-file-tree-item.active {
+            background: rgba(0, 122, 204, 0.2);
+            color: var(--axiom-accent);
+        }
+
+        .axiom-file-tree-indent {
+            display: inline-block;
+            width: 16px;
+        }
+
+        /* AI Panel */
+        #ai-panel {
+            display: flex;
+            flex-direction: column;
+            gap: var(--axiom-spacing-sm);
+        }
+
+        #ai-input {
+            width: 100%;
+        }
+
+        #ai-response {
+            background: var(--axiom-bg-tertiary);
+            padding: var(--axiom-spacing-md);
+            border-radius: var(--axiom-border-radius);
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: var(--axiom-font-mono);
+            font-size: var(--axiom-font-size-sm);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .axiom-skeleton {
+            background: linear-gradient(90deg, var(--axiom-bg-tertiary) 0%, var(--axiom-border-light) 50%, var(--axiom-bg-tertiary) 100%);
+            background-size: 200% 100%;
+            animation: axiom-skeleton-loading 1.5s infinite;
+        }
+
+        @keyframes axiom-skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Theme selector */
+        .theme-selector {
+            display: flex;
+            gap: 4px;
+        }
+
+        .theme-selector button {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--axiom-border);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-selector button.dark {
+            background: #1e1e1e;
+            color: white;
+        }
+
+        .theme-selector button.light {
+            background: #ffffff;
+            color: #000;
+        }
+
+        .theme-selector button.monokai {
+            background: #272822;
+            color: #f8f8f2;
+        }
+
+        .theme-selector button.active {
+            border-color: var(--axiom-accent);
+            box-shadow: 0 0 8px rgba(0, 122, 204, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="axiom-container">
+        <!-- Toolbar -->
+        <div class="axiom-toolbar">
+            <div class="axiom-toolbar-group">
+                <axiom-button class="small" id="new-file-btn">📄 New File</axiom-button>
+                <axiom-button class="small secondary" id="open-file-btn">📂 Open</axiom-button>
+                <axiom-button class="small secondary" id="save-btn">💾 Save</axiom-button>
+            </div>
+            
+            <div class="axiom-toolbar-separator"></div>
+            
+            <div class="axiom-toolbar-group">
+                <axiom-button class="small secondary" id="settings-btn">⚙️ Settings</axiom-button>
+                <axiom-button class="small secondary" id="about-btn">ℹ️ About</axiom-button>
+            </div>
+
+            <div style="flex: 1;"></div>
+
+            <div class="axiom-toolbar-group">
+                <label style="font-size: var(--axiom-font-size-sm); margin-right: 8px;">Theme:</label>
+                <div class="theme-selector">
+                    <button class="dark active" title="Dark" onclick="Axiom.UI.setTheme('dark')"></button>
+                    <button class="light" title="Light" onclick="Axiom.UI.setTheme('light')"></button>
+                    <button class="monokai" title="Monokai" onclick="Axiom.UI.setTheme('monokai')"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="axiom-main">
+            <!-- Sidebar -->
+            <axiom-sidebar id="sidebar">
+                <axiom-sidebar-group>📁 Project</axiom-sidebar-group>
+                <div class="axiom-file-tree" id="file-tree">
+                    <div class="axiom-file-tree-item active" data-file="main.go">
+                        📄 main.go
+                    </div>
+                    <div class="axiom-file-tree-item" data-file="go.mod">
+                        📄 go.mod
+                    </div>
+                    <div class="axiom-file-tree-item" style="font-weight: 600;">
+                        📁 core/
+                    </div>
+                    <div class="axiom-file-tree-item" style="margin-left: 16px;">
+                        📄 bus.go
+                    </div>
+                    <div class="axiom-file-tree-item" style="font-weight: 600;">
+                        📁 modules/
+                    </div>
+                </div>
+
+                <axiom-separator></axiom-separator>
+
+                <axiom-sidebar-group>🔧 Modules Actifs</axiom-sidebar-group>
+                <div id="modules-list" style="font-size: var(--axiom-font-size-sm);">
+                    <div class="axiom-sidebar-item">✓ ai-assistant</div>
+                    <div class="axiom-sidebar-item">✓ file-explorer</div>
+                    <div class="axiom-sidebar-item">✓ theme-manager</div>
+                </div>
+
+                <axiom-separator></axiom-separator>
+
+                <axiom-sidebar-group>📊 Système</axiom-sidebar-group>
+                <div id="system-info" style="font-size: var(--axiom-font-size-sm); color: var(--axiom-fg-secondary);">
+                    <div>CPU: <strong>--</strong></div>
+                    <div>RAM: <strong>--</strong></div>
+                </div>
+            </axiom-sidebar>
+
+            <!-- Editor -->
+            <div class="axiom-editor-area">
+                <!-- Tabs -->
+                <div class="axiom-editor-tabs" id="editor-tabs">
+                    <button class="axiom-editor-tab active" data-file="main.go">main.go</button>
+                    <button class="axiom-editor-tab" data-file="README.md">README.md</button>
+                </div>
+
+                <!-- Editor content -->
+                <div class="axiom-editor-content" id="editor-content">
+                    <h1>🚀 Axiom IDE v0.3.0</h1>
+                    <p><strong>Plateforme modulaire d'ingénierie logicielle</strong></p>
+
+                    <h2 style="margin-top: 24px;">🎉 Nouvelles Fonctionnalités v0.3.0</h2>
+                    <ul style="margin-left: 20px; margin-top: 12px; line-height: 2;">
+                        <li>✨ <strong>Système de Composants UI</strong> — Créer des interfaces 2x plus vite</li>
+                        <li>🛠️ <strong>Module Generator</strong> — Générer un module en 30 secondes</li>
+                        <li>🎨 <strong>UI Builder Simple</strong> — Interface drag-and-drop basique</li>
+                        <li>📦 <strong>Composants Réutilisables</strong> — Button, Panel, Tabs, Sidebar, etc.</li>
+                        <li>⚡ <strong>Performance+</strong> — Hot-reload amélioré</li>
+                        <li>📚 <strong>Documentation++</strong> — Guides complets pour chaque composant</li>
+                    </ul>
+
+                    <h2 style="margin-top: 24px;">🎯 Utilisation Rapide</h2>
+                    <axiom-code style="margin-top: 12px;"><code>// Créer un panel
+const panel = axiomPanel({
+    title: 'My Panel',
+    content: '&lt;p&gt;Hello!&lt;/p&gt;',
+    collapsible: true
+});
+document.body.appendChild(panel);
+
+// Créer un alert
+axiomAlert({
+    message: 'Success!',
+    type: 'success',
+    duration: 3000
+}).appendChild(document.body);
+
+// Écouter les événements
+axiomOn('button:clicked', (data) => {
+    console.log('Button:', data.action);
+});
+</code></axiom-code>
+
+                    <h2 style="margin-top: 24px;">🤖 AI Integration</h2>
+                    <div id="ai-panel" style="margin-top: 12px;">
+                        <textarea 
+                            axiom-input 
+                            id="ai-input" 
+                            placeholder="Ask Axiom AI... (Ctrl+Enter to send)"
+                            style="height: 60px; resize: vertical;"></textarea>
+                        <axiom-button id="ai-send-btn">🤖 Ask AI</axiom-button>
+                        <div id="ai-response" style="display: none;">Loading...</div>
+                    </div>
+
+                    <h2 style="margin-top: 24px;">📖 Documentation</h2>
+                    <p>Pour plus d'infos, consulte:</p>
+                    <ul style="margin-left: 20px; margin-top: 8px;">
+                        <li><strong>Components Library</strong> → axiom-ui-components.css/js</li>
+                        <li><strong>Module Generator</strong> → Voir "Module Generator" en bas</li>
+                        <li><strong>Full Docs</strong> → AXIOM_DETAILED_ANALYSIS.md</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status bar -->
+        <div class="axiom-statusbar">
+            <div class="axiom-statusbar-item">
+                <span>✓ Engine Ready</span>
+            </div>
+            <div class="axiom-statusbar-item">
+                <span id="editor-info">main.go • Line 1, Col 1</span>
+            </div>
+            <div class="axiom-statusbar-item">
+                <span>Axiom v0.3.0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─────────────────────────────────────────────────────────────
+        // INITIALIZATION
+        // ─────────────────────────────────────────────────────────────
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('[Axiom] Frontend initialized');
+            setupToolbar();
+            setupFileTree();
+            setupTabs();
+            setupAI();
+            setupTheme();
+            setupEventListeners();
+        });
+
+        // ─────────────────────────────────────────────────────────────
+        // TOOLBAR EVENTS
+        // ─────────────────────────────────────────────────────────────
+
+        function setupToolbar() {
+            document.getElementById('new-file-btn')?.addEventListener('click', () => {
+                axiomAlert({
+                    message: '📄 New File (Feature coming soon)',
+                    type: 'info',
+                    duration: 2000
+                });
+                document.body.appendChild(
+                    axiomAlert({
+                        message: '📄 New File (Feature coming soon)',
+                        type: 'info',
+                        duration: 2000
+                    })
+                );
+            });
+
+            document.getElementById('save-btn')?.addEventListener('click', () => {
+                const alert = axiomAlert({
+                    message: '💾 File saved!',
+                    type: 'success',
+                    duration: 2000
+                });
+                document.body.appendChild(alert);
+            });
+
+            document.getElementById('settings-btn')?.addEventListener('click', () => {
+                axiomModal({
+                    title: '⚙️ Settings',
+                    content: `
+                        <p style="margin-bottom: 16px;">Coming in v0.4</p>
+                        <axiom-code><code>- Theme settings
+- Editor preferences
+- AI model selection
+- Keyboard shortcuts</code></axiom-code>
+                    `
+                });
+            });
+
+            document.getElementById('about-btn')?.addEventListener('click', () => {
+                axiomModal({
+                    title: 'ℹ️ About Axiom',
+                    content: `
+                        <p><strong>Axiom IDE v0.3.0</strong></p>
+                        <p style="margin-top: 12px; font-size: 12px;">Plateforme modulaire d'ingénierie logicielle</p>
+                        <p style="margin-top: 12px; font-size: 12px;">
+                            • Go 1.22+ core<br>
+                            • Wails v2 UI<br>
+                            • Multi-provider IA<br>
+                            • Permissions granulaires (L0-L3)
+                        </p>
+                        <p style="margin-top: 12px; font-size: 12px;">
+                            License: MIT<br>
+                            GitHub: github.com/axiom-ide/axiom
+                        </p>
+                    `
+                });
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // FILE TREE
+        // ─────────────────────────────────────────────────────────────
+
+        function setupFileTree() {
+            document.querySelectorAll('.axiom-file-tree-item[data-file]').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.axiom-file-tree-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    item.classList.add('active');
+
+                    const filename = item.getAttribute('data-file');
+                    console.log('File selected:', filename);
+                });
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // EDITOR TABS
+        // ─────────────────────────────────────────────────────────────
+
+        function setupTabs() {
+            document.querySelectorAll('.axiom-editor-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.axiom-editor-tab').forEach(t => {
+                        t.classList.remove('active');
+                    });
+                    tab.classList.add('active');
+                    console.log('Tab selected:', tab.getAttribute('data-file'));
+                });
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // AI INTEGRATION
+        // ─────────────────────────────────────────────────────────────
+
+        function setupAI() {
+            const aiInput = document.getElementById('ai-input');
+            const aiSendBtn = document.getElementById('ai-send-btn');
+            const aiResponse = document.getElementById('ai-response');
+
+            aiSendBtn?.addEventListener('click', sendToAI);
+            aiInput?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    sendToAI();
+                }
+            });
+
+            async function sendToAI() {
+                const prompt = aiInput.value.trim();
+                if (!prompt) return;
+
+                aiResponse.style.display = 'block';
+                aiResponse.innerHTML = '<span class="axiom-skeleton" style="height: 20px; display: block;"></span>';
+
+                // Simulate AI response (en production, ce serait une vraie requête)
+                await new Promise(r => setTimeout(r, 1500));
+
+                aiResponse.innerHTML = `✨ AI Response:
+
+Your prompt: "${prompt}"
+
+[AI response would appear here]
+
+Configure AXIOM_AI_PROVIDER pour utiliser:
+- Ollama (local gratuit)
+- Claude (API)
+- OpenAI (API)
+- Mistral (API)
+- Groq (API gratuit beta)
+
+Voir: AXIOM_LAUNCH_GUIDE.md`;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // THEME MANAGEMENT
+        // ─────────────────────────────────────────────────────────────
+
+        function setupTheme() {
+            const savedTheme = localStorage.getItem('axiom-theme') || 'dark';
+            Axiom.UI.setTheme(savedTheme);
+
+            document.querySelectorAll('.theme-selector button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.theme-selector .${savedTheme}`)?.classList.add('active');
+
+            axiomOn('theme:changed', (data) => {
+                document.querySelectorAll('.theme-selector button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector(`.theme-selector .${data.theme}`)?.classList.add('active');
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // GLOBAL EVENT LISTENERS
+        // ─────────────────────────────────────────────────────────────
+
+        function setupEventListeners() {
+            axiomOn('button:clicked', (data) => {
+                console.log('[Axiom] Button clicked:', data.action);
+            });
+
+            axiomOn('tab:changed', (data) => {
+                console.log('[Axiom] Tab changed:', data);
+            });
+
+            axiomOn('panel:toggled', (data) => {
+                console.log('[Axiom] Panel toggled:', data);
+            });
+        }
+    </script>
+</body>
+</html>
