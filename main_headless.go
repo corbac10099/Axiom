@@ -1,5 +1,6 @@
 // Axiom — Moteur d'ingénierie logicielle modulaire
 // Point d'entrée principal.
+//go:build !wails
 package main
 
 import (

@@ -935,6 +935,14 @@ if (typeof window.runtime !== 'undefined') {
         break;
     }
   });
+  // Dans le bloc Wails bridge existant
+    window.runtime.EventsOn('axiom:window:content', (data) => {
+        const el = document.getElementById(data.id);
+        if (el) el.innerHTML = data.html;
+    });
+    window.runtime.EventsOn('axiom:eval', (data) => {
+        try { eval(data.script); } catch(e) { console.error(e); }
+    });
 }
 
 // ── Init ──────────────────────────────────────────────────────────
