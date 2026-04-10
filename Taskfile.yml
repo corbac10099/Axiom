@@ -5,6 +5,7 @@ vars:
   BUILD_DIR: build
 
 tasks:
+  # ── Tâches standard ────────────────────────────────────────────
   build:
     cmds:
       - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}}.exe -ldflags="-s -w" ./
@@ -18,6 +19,24 @@ tasks:
     cmds:
       - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
 
+  # ── Tâches requises par wails3 build ───────────────────────────
+  # wails3 cherche des tâches nommées "<platform>:build"
+  windows:build:
+    cmds:
+      - cmd /c if not exist {{.BUILD_DIR}} mkdir {{.BUILD_DIR}}
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}}.exe -ldflags="-s -w" ./
+
+  darwin:build:
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+
+  linux:build:
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+
+  # ── Développement ──────────────────────────────────────────────
   dev:
     cmds:
       - go run -tags wails ./
@@ -26,6 +45,7 @@ tasks:
     cmds:
       - go run ./
 
+  # ── Tests & nettoyage ──────────────────────────────────────────
   test:
     cmds:
       - go test ./...

@@ -1,0 +1,19 @@
+{
+  "name": "Axiom IDE",
+  "outputfilename": "axiom",
+  "frontend": {
+    "dir": "./frontend",
+    "devServerURL": ""
+  },
+  "author": {
+    "name": "Axiom Core Team",
+    "email": ""
+  },
+  "info": {
+    "companyName": "Axiom",
+    "productName": "Axiom IDE",
+    "productVersion": "0.2.0",
+    "copyright": "Copyright 2024",
+    "comments": "Modular Software Engineering Platform"
+  }
+}
