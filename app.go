@@ -4,10 +4,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/axiom-ide/axiom/api"
 	axiomconfig "github.com/axiom-ide/axiom/core/config"
@@ -21,11 +20,11 @@ import (
 	wailsadapter "github.com/axiom-ide/axiom/adapters/wails"
 )
 
-// App est le struct central exposé au frontend via Wails.
-// Toutes les méthodes publiques deviennent des fonctions appelables depuis le JS.
+// App est le struct central exposé au frontend via Wails v2.
+// Toutes les méthodes publiques deviennent des fonctions JS appelables
+// via window.go.App.MethodName(...) dans le frontend.
 type App struct {
 	ctx     context.Context
-	cancel  context.CancelFunc
 	eng     *engine.Engine
 	tabMgr  *tabs.Manager
 	persist *workspace.Persistence
@@ -36,14 +35,15 @@ type App struct {
 	logger  *slog.Logger
 }
 
-// NewApp crée l'instance App.
+// NewApp crée l'instance App (appelé avant OnStartup).
 func NewApp() *App {
 	return &App{logger: slog.Default()}
 }
 
-// Startup initialise le moteur Axiom. Appelé depuis main() AVANT app.Run().
-func (a *App) Startup(wailsApp *application.App) {
-	a.ctx, a.cancel = context.WithCancel(context.Background())
+// OnStartup est appelé par Wails v2 après la création de la fenêtre.
+// c est le contexte Wails — OBLIGATOIRE pour runtime.EventsEmit.
+func (a *App) OnStartup(c context.Context) {
+	a.ctx = c
 
 	// ── Config ──────────────────────────────────────────────────
 	cfg, warnings := axiomconfig.Load("")
@@ -77,8 +77,9 @@ func (a *App) Startup(wailsApp *application.App) {
 	}
 	a.fsHdlr = fsHdlr
 
-	// ── Wails v3 Adapter ─────────────────────────────────────────
-	adapter := wailsadapter.NewAdapter(wailsApp, a.logger)
+	// ── Wails v2 Adapter ─────────────────────────────────────────
+	// ctx est maintenant disponible → on peut créer l'adapter.
+	adapter := wailsadapter.NewAdapter(c, a.logger)
 	adapter.RegisterBidirectional(eng.Bus())
 	a.adapter = adapter
 
@@ -115,17 +116,17 @@ func (a *App) Startup(wailsApp *application.App) {
 	a.persist.Start()
 
 	engProxy := &appEngineProxy{eng: eng}
-	if errs := a.runner.InitAll(a.ctx, engProxy, engProxy); len(errs) > 0 {
+	if errs := a.runner.InitAll(c, engProxy, engProxy); len(errs) > 0 {
 		for _, e := range errs {
 			a.logger.Warn("module init error", slog.String("error", e.Error()))
 		}
 	}
 
-	a.logger.Info("axiom wails v3: ready ✓")
+	a.logger.Info("axiom wails v2: engine ready ✓")
 }
 
-// Shutdown est appelé à la fermeture de l'application.
-func (a *App) Shutdown() {
+// OnShutdown est appelé par Wails v2 avant la fermeture.
+func (a *App) OnShutdown(ctx context.Context) {
 	if a.persist != nil {
 		_ = a.persist.SaveSync()
 	}
@@ -135,13 +136,11 @@ func (a *App) Shutdown() {
 	if a.eng != nil {
 		a.eng.Shutdown()
 	}
-	if a.cancel != nil {
-		a.cancel()
-	}
 }
 
 // ─────────────────────────────────────────────
-// MÉTHODES BINDÉES (appelables depuis le JS)
+// MÉTHODES BINDÉES — appelables depuis le JS
+// via window.go.App.MethodName(args)
 // ─────────────────────────────────────────────
 
 // ReadFile lit un fichier du workspace.
@@ -178,6 +177,23 @@ func (a *App) SetTheme(themeID string) error {
 		return fmt.Errorf("engine not initialized")
 	}
 	return a.eng.Dispatch("engine", api.TopicUISetTheme, api.PayloadUITheme{ThemeID: themeID})
+}
+
+// HandleUIInput reçoit les événements utilisateur depuis le JS.
+// Alternative aux EventsEmit pour les inputs critiques.
+func (a *App) HandleUIInput(windowID, eventType, dataJSON string) error {
+	if a.eng == nil {
+		return fmt.Errorf("engine not initialized")
+	}
+	var data interface{}
+	if dataJSON != "" {
+		_ = json.Unmarshal([]byte(dataJSON), &data)
+	}
+	return a.eng.Dispatch("engine", api.TopicUIUserInput, api.PayloadUIUserInput{
+		WindowID:  windowID,
+		EventType: eventType,
+		Data:      data,
+	})
 }
 
 // GetConfig retourne la config courante (sans les clés sensibles).

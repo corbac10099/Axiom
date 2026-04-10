@@ -6,7 +6,10 @@ import (
 	"embed"
 	"log"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend
@@ -15,31 +18,29 @@ var assets embed.FS
 func main() {
 	axiomApp := NewApp()
 
-	app := application.New(application.Options{
-		Name:        "Axiom IDE",
-		Description: "Modular Software Engineering Platform",
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+	err := wails.Run(&options.App{
+		Title:  "Axiom IDE",
+		Width:  1400,
+		Height: 900,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 30, A: 255},
+		OnStartup:        axiomApp.OnStartup,
+		OnShutdown:       axiomApp.OnShutdown,
+		Bind: []interface{}{
+			axiomApp,
+		},
+		Windows: &windows.Options{
+			WebviewIsTransparent:              false,
+			WindowIsTranslucent:               false,
+			DisableWindowIcon:                 false,
+			DisablePinchZoom:                  true,
+			IsZoomControlEnabled:              false,
+			EnableSwipeGestures:               false,
 		},
 	})
-
-	// Initialiser le moteur Axiom AVANT app.Run()
-	axiomApp.Startup(app)
-	defer axiomApp.Shutdown()
-
-	// Fenêtre principale
-	app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
-		Title:            "Axiom IDE",
-		Width:            1400,
-		Height:           900,
-		BackgroundColour: application.NewRGBA(30, 30, 30, 255),
-		URL:              "/",
-	})
-
-	// Exposer les méthodes Go au JS
-	app.Bind(axiomApp)
-
-	if err := app.Run(); err != nil {
+	if err != nil {
 		log.Fatal("axiom: wails run failed:", err)
 	}
 }

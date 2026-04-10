@@ -5,43 +5,30 @@ vars:
   BUILD_DIR: build
 
 tasks:
-  # ── Tâches standard ────────────────────────────────────────────
+  # ── Build production ───────────────────────────────────────────
   build:
+    desc: "Build Axiom IDE (Windows, production)"
     cmds:
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}}.exe -ldflags="-s -w" ./
+      - wails build -platform windows/amd64 -o {{.APP_NAME}}.exe
     platforms: [windows]
 
   build:linux:
     cmds:
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+      - wails build -platform linux/amd64
 
   build:darwin:
     cmds:
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+      - wails build -platform darwin/amd64
 
-  # ── Tâches requises par wails3 build ───────────────────────────
-  # wails3 cherche des tâches nommées "<platform>:build"
-  windows:build:
-    cmds:
-      - cmd /c if not exist {{.BUILD_DIR}} mkdir {{.BUILD_DIR}}
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}}.exe -ldflags="-s -w" ./
-
-  darwin:build:
-    cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
-
-  linux:build:
-    cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
-
-  # ── Développement ──────────────────────────────────────────────
+  # ── Développement avec hot-reload ─────────────────────────────
   dev:
+    desc: "Lancer en mode dev (hot-reload Wails v2)"
     cmds:
-      - go run -tags wails ./
+      - wails dev
 
+  # ── Mode headless (core Go sans UI) ───────────────────────────
   run:
+    desc: "Lancer le core sans UI Wails"
     cmds:
       - go run ./
 
@@ -50,7 +37,11 @@ tasks:
     cmds:
       - go test ./...
 
+  test:verbose:
+    cmds:
+      - go test -v ./...
+
   clean:
     cmds:
-      - cmd /c if exist build\axiom.exe del build\axiom.exe
+      - cmd /c if exist build rmdir /s /q build
     platforms: [windows]

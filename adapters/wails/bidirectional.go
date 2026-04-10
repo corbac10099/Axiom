@@ -1,21 +1,12 @@
 //go:build wails
 
-// Package wails — bridge bidirectionnel Go ↔ JS pour Wails v3.
+// Package wails — bridge bidirectionnel Go ↔ JS pour Wails v2.
 //
-// Go → JS : app.EmitEvent("axiom:event", payload)
-// JS → Go : app.OnEvent("axiom:input", handler)
+// Go → JS : runtime.EventsEmit(ctx, "axiom:event", payload)
+//           Côté JS : window.runtime.EventsOn("axiom:event", callback)
 //
-// Côté frontend (JavaScript) :
-//
-//	// Écouter les événements Go→JS
-//	window.wails.Events.On("axiom:event", (event) => {
-//	    console.log(event.topic, event.payload)
-//	})
-//
-//	// Envoyer un événement JS→Go
-//	window.wails.Events.Emit("axiom:input", {
-//	    window_id: "main", event_type: "keydown", data: { key: "s", ctrl: true }
-//	})
+// JS → Go : window.runtime.EventsEmit("axiom:input", payload)
+//           Côté Go : runtime.EventsOn(ctx, "axiom:input", handler)
 package wails
 
 import (
@@ -23,18 +14,22 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/axiom-ide/axiom/api"
 	"github.com/axiom-ide/axiom/core/bus"
 	"github.com/axiom-ide/axiom/pkg/uid"
 )
 
-// RegisterBidirectional câble les deux canaux de communication Go ↔ JS.
+// RegisterBidirectional câble les deux canaux Go ↔ JS.
 func (a *Adapter) RegisterBidirectional(eventBus *bus.EventBus) {
 	// ── JS → Go ──────────────────────────────────────────────────
-	a.app.OnEvent("axiom:input", func(e *application.CustomEvent) {
-		raw, err := json.Marshal(e.Data)
+	// Le frontend envoie : window.runtime.EventsEmit("axiom:input", {...})
+	runtime.EventsOn(a.ctx, "axiom:input", func(optionalData ...interface{}) {
+		if len(optionalData) == 0 {
+			return
+		}
+		raw, err := json.Marshal(optionalData[0])
 		if err != nil {
 			a.logger.Warn("wails: marshal JS event failed", slog.String("error", err.Error()))
 			return
@@ -58,6 +53,7 @@ func (a *Adapter) RegisterBidirectional(eventBus *bus.EventBus) {
 	})
 
 	// ── Go → JS ──────────────────────────────────────────────────
+	// Les topics UI sont pushés vers le frontend via EventsEmit.
 	uiTopics := []api.Topic{
 		api.TopicUISetTheme,
 		api.TopicUIOpenPanel,
@@ -68,17 +64,20 @@ func (a *Adapter) RegisterBidirectional(eventBus *bus.EventBus) {
 		api.TopicAIResponse,
 		api.TopicModuleLoaded,
 	}
+
 	for _, topic := range uiTopics {
 		t := topic
 		eventBus.Subscribe(t, func(ev api.Event) {
-			a.app.EmitEvent("axiom:event", map[string]any{
+			runtime.EventsEmit(a.ctx, "axiom:event", map[string]any{
 				"event_id":  ev.ID,
 				"topic":     string(ev.Topic),
 				"source":    ev.Source,
-				"payload":   ev.Payload,
+				"payload":   marshalPayload(ev.Payload),
 				"timestamp": ev.Timestamp.UnixMilli(),
 			})
-			a.logger.Debug("wails: Go→JS event emitted", slog.String("topic", string(ev.Topic)))
+			a.logger.Debug("wails: Go→JS event emitted",
+				slog.String("topic", string(ev.Topic)),
+			)
 		})
 	}
 

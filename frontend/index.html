@@ -6,442 +6,97 @@
   <title>Axiom IDE</title>
   <link rel="stylesheet" href="./axiom-ui-components.css">
   <style>
-    /* ── Reset & base ──────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; font-family: var(--axiom-font-sans); font-size: 13px; background: var(--axiom-bg-primary); color: var(--axiom-fg-primary); }
+    #app { display: grid; grid-template-rows: 30px 1fr 22px; grid-template-columns: 48px 240px 1fr; height: 100vh; }
 
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      font-family: var(--axiom-font-sans);
-      font-size: 13px;
-      background: var(--axiom-bg-primary);
-      color: var(--axiom-fg-primary);
-    }
-
-    /* ── Layout racine : Activity Bar | Sidebar | Editor | Panel ── */
-    #app {
-      display: grid;
-      grid-template-rows: 30px 1fr 22px;   /* titlebar | content | statusbar */
-      grid-template-columns: 48px 240px 1fr;
-      height: 100vh;
-    }
-
-    /* ── Title bar ─────────────────────────────────────────────── */
-    #titlebar {
-      grid-column: 1 / -1;
-      grid-row: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #323233;
-      border-bottom: 1px solid var(--axiom-border);
-      -webkit-app-region: drag; /* Wails draggable */
-      user-select: none;
-      font-size: 12px;
-      color: #ccc;
-      gap: 8px;
-    }
-    #titlebar .title-menus {
-      position: absolute;
-      left: 8px;
-      display: flex;
-      gap: 2px;
-      -webkit-app-region: no-drag;
-    }
-    #titlebar .menu-item {
-      padding: 2px 8px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-    }
+    /* Title bar */
+    #titlebar { grid-column: 1/-1; grid-row: 1; display: flex; align-items: center; justify-content: center; background: #323233; border-bottom: 1px solid var(--axiom-border); --wails-draggable: drag; user-select: none; font-size: 12px; color: #ccc; gap: 8px; }
+    #titlebar .title-menus { position: absolute; left: 8px; display: flex; gap: 2px; --wails-draggable: no-drag; }
+    #titlebar .menu-item { padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; }
     #titlebar .menu-item:hover { background: rgba(255,255,255,0.1); }
 
-    /* ── Activity bar (icônes verticales) ───────────────────────── */
-    #activity-bar {
-      grid-column: 1;
-      grid-row: 2;
-      background: #333333;
-      border-right: 1px solid var(--axiom-border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 4px;
-      gap: 2px;
-    }
-    .activity-icon {
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      opacity: 0.6;
-      font-size: 22px;
-      transition: opacity 0.15s;
-      border-left: 2px solid transparent;
-    }
+    /* Activity bar */
+    #activity-bar { grid-column: 1; grid-row: 2; background: #333; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; align-items: center; padding-top: 4px; gap: 2px; }
+    .activity-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.6; font-size: 22px; transition: opacity 0.15s; border-left: 2px solid transparent; }
     .activity-icon:hover { opacity: 1; }
-    .activity-icon.active {
-      opacity: 1;
-      border-left-color: var(--axiom-fg-primary);
-    }
+    .activity-icon.active { opacity: 1; border-left-color: var(--axiom-fg-primary); }
     #activity-bar .spacer { flex: 1; }
 
-    /* ── Sidebar ────────────────────────────────────────────────── */
-    #sidebar {
-      grid-column: 2;
-      grid-row: 2;
-      background: #252526;
-      border-right: 1px solid var(--axiom-border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    #sidebar-header {
-      padding: 8px 12px 4px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #bbb;
-      flex-shrink: 0;
-    }
-    #sidebar-content {
-      flex: 1;
-      overflow-y: auto;
-    }
-    /* File tree */
-    .tree-item {
-      display: flex;
-      align-items: center;
-      padding: 2px 0 2px 12px;
-      cursor: pointer;
-      border-radius: 3px;
-      gap: 5px;
-      font-size: 13px;
-      color: var(--axiom-fg-primary);
-      white-space: nowrap;
-    }
+    /* Sidebar */
+    #sidebar { grid-column: 2; grid-row: 2; background: #252526; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; overflow: hidden; }
+    #sidebar-header { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #bbb; flex-shrink: 0; }
+    #sidebar-content { flex: 1; overflow-y: auto; }
+    .tree-item { display: flex; align-items: center; padding: 2px 0 2px 12px; cursor: pointer; border-radius: 3px; gap: 5px; font-size: 13px; color: var(--axiom-fg-primary); white-space: nowrap; }
     .tree-item:hover { background: #2a2d2e; }
     .tree-item.active { background: #094771; }
-    .tree-item .icon { font-size: 14px; flex-shrink: 0; }
     .tree-item.dir { font-weight: 500; }
     .tree-indent { display: inline-block; width: 16px; flex-shrink: 0; }
 
-    /* ── Main editor area ───────────────────────────────────────── */
-    #editor-area {
-      grid-column: 3;
-      grid-row: 2;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: #1e1e1e;
-    }
-
-    /* Tab bar */
-    #tab-bar {
-      display: flex;
-      background: #2d2d2d;
-      border-bottom: 1px solid var(--axiom-border);
-      overflow-x: auto;
-      flex-shrink: 0;
-      height: 35px;
-      scrollbar-width: none;
-    }
+    /* Editor area */
+    #editor-area { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; }
+    #tab-bar { display: flex; background: #2d2d2d; border-bottom: 1px solid var(--axiom-border); overflow-x: auto; flex-shrink: 0; height: 35px; scrollbar-width: none; }
     #tab-bar::-webkit-scrollbar { display: none; }
-    .editor-tab {
-      display: flex;
-      align-items: center;
-      padding: 0 12px;
-      gap: 6px;
-      height: 35px;
-      cursor: pointer;
-      font-size: 13px;
-      border-right: 1px solid var(--axiom-border);
-      white-space: nowrap;
-      background: #2d2d2d;
-      color: #999;
-      transition: background 0.1s;
-      min-width: 100px;
-    }
+    .editor-tab { display: flex; align-items: center; padding: 0 12px; gap: 6px; height: 35px; cursor: pointer; font-size: 13px; border-right: 1px solid var(--axiom-border); white-space: nowrap; background: #2d2d2d; color: #999; transition: background 0.1s; min-width: 100px; }
     .editor-tab:hover { background: #383838; color: #ccc; }
-    .editor-tab.active {
-      background: #1e1e1e;
-      color: #ccc;
-      border-top: 1px solid #007acc;
-    }
-    .editor-tab .tab-close {
-      font-size: 16px;
-      opacity: 0;
-      margin-left: auto;
-      line-height: 1;
-    }
-    .editor-tab:hover .tab-close,
-    .editor-tab.active .tab-close { opacity: 0.5; }
+    .editor-tab.active { background: #1e1e1e; color: #ccc; border-top: 1px solid #007acc; }
+    .editor-tab .tab-close { font-size: 16px; opacity: 0; margin-left: auto; line-height: 1; }
+    .editor-tab:hover .tab-close, .editor-tab.active .tab-close { opacity: 0.5; }
     .editor-tab .tab-close:hover { opacity: 1; }
-    .editor-tab.dirty::after {
-      content: '●';
-      font-size: 8px;
-      color: #e2c08d;
-      margin-left: 4px;
-    }
-
-    /* Breadcrumb */
-    #breadcrumb {
-      padding: 4px 12px;
-      font-size: 12px;
-      color: #888;
-      background: #1e1e1e;
-      border-bottom: 1px solid #333;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    #breadcrumb span { cursor: pointer; }
-    #breadcrumb span:hover { color: #ccc; }
-
-    /* Editor content zone */
-    #editor-content {
-      flex: 1;
-      overflow: auto;
-      display: flex;
-    }
-    /* Placeholder quand aucun fichier ouvert */
-    #welcome {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      color: #555;
-      user-select: none;
-    }
+    .editor-tab.dirty::after { content: '●'; font-size: 8px; color: #e2c08d; margin-left: 4px; }
+    #breadcrumb { padding: 4px 12px; font-size: 12px; color: #888; background: #1e1e1e; border-bottom: 1px solid #333; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+    #editor-content { flex: 1; overflow: auto; display: flex; }
+    #welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; color: #555; user-select: none; }
     #welcome h1 { font-size: 28px; font-weight: 300; color: #666; }
-    #welcome .shortcuts {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px 24px;
-      font-size: 12px;
-    }
-    #welcome .shortcuts kbd {
-      background: #333;
-      border: 1px solid #555;
-      border-radius: 3px;
-      padding: 1px 6px;
-      font-family: var(--axiom-font-mono);
-      font-size: 11px;
-    }
-    /* Code editor zone (CodeMirror / Monaco s'intégrera ici) */
-    #code-editor {
-      flex: 1;
-      overflow: auto;
-      display: none;
-      font-family: var(--axiom-font-mono);
-      font-size: 13px;
-      line-height: 1.6;
-    }
+    #welcome .shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 12px; }
+    #welcome .shortcuts kbd { background: #333; border: 1px solid #555; border-radius: 3px; padding: 1px 6px; font-family: var(--axiom-font-mono); font-size: 11px; }
+    #code-editor { flex: 1; overflow: auto; display: none; font-family: var(--axiom-font-mono); font-size: 13px; line-height: 1.6; }
     #code-editor.visible { display: block; }
 
-    /* ── Bottom panel (terminal / problems / output) ─────────────── */
-    #bottom-panel {
-      grid-column: 3;
-      /* positionné via JS dans #editor-area en flex-col */
-      flex-shrink: 0;
-      height: 200px;
-      border-top: 1px solid var(--axiom-border);
-      background: #1e1e1e;
-      display: none;
-      flex-direction: column;
-    }
+    /* Bottom panel */
+    #bottom-panel { flex-shrink: 0; height: 200px; border-top: 1px solid var(--axiom-border); background: #1e1e1e; display: none; flex-direction: column; }
     #bottom-panel.visible { display: flex; }
-    #panel-tabs {
-      display: flex;
-      background: #252526;
-      border-bottom: 1px solid var(--axiom-border);
-      flex-shrink: 0;
-    }
-    .panel-tab {
-      padding: 5px 14px;
-      font-size: 12px;
-      cursor: pointer;
-      color: #999;
-      border-bottom: 2px solid transparent;
-    }
+    #panel-tabs { display: flex; background: #252526; border-bottom: 1px solid var(--axiom-border); flex-shrink: 0; }
+    .panel-tab { padding: 5px 14px; font-size: 12px; cursor: pointer; color: #999; border-bottom: 2px solid transparent; }
     .panel-tab:hover { color: #ccc; }
     .panel-tab.active { color: #ccc; border-bottom-color: #007acc; }
-    #panel-content {
-      flex: 1;
-      overflow: auto;
-      padding: 8px 12px;
-      font-family: var(--axiom-font-mono);
-      font-size: 12px;
-      color: #ccc;
-    }
-    .panel-resize-handle {
-      height: 4px;
-      cursor: ns-resize;
-      background: transparent;
-      flex-shrink: 0;
-    }
+    #panel-content { flex: 1; overflow: auto; padding: 8px 12px; font-family: var(--axiom-font-mono); font-size: 12px; color: #ccc; }
+    .panel-resize-handle { height: 4px; cursor: ns-resize; background: transparent; flex-shrink: 0; }
     .panel-resize-handle:hover { background: #007acc44; }
 
-    /* ── Status bar ─────────────────────────────────────────────── */
-    #statusbar {
-      grid-column: 1 / -1;
-      grid-row: 3;
-      background: #007acc;
-      display: flex;
-      align-items: center;
-      padding: 0 8px;
-      gap: 12px;
-      font-size: 12px;
-      color: white;
-    }
-    .status-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 0 4px;
-      cursor: pointer;
-      border-radius: 2px;
-    }
+    /* Status bar */
+    #statusbar { grid-column: 1/-1; grid-row: 3; background: #007acc; display: flex; align-items: center; padding: 0 8px; gap: 12px; font-size: 12px; color: white; }
+    .status-item { display: flex; align-items: center; gap: 4px; padding: 0 4px; cursor: pointer; border-radius: 2px; }
     .status-item:hover { background: rgba(255,255,255,0.15); }
     #statusbar .spacer { flex: 1; }
 
-    /* ── Sidebar resize handle ──────────────────────────────────── */
-    #sidebar-resize {
-      grid-column: 2;
-      grid-row: 2;
-      position: relative;
-    }
-    .resize-handle {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      cursor: ew-resize;
-      z-index: 10;
-    }
-    .resize-handle:hover { background: #007acc44; }
-
-    /* ── Context menu ───────────────────────────────────────────── */
-    #context-menu {
-      position: fixed;
-      background: #252526;
-      border: 1px solid #454545;
-      border-radius: 4px;
-      padding: 4px 0;
-      z-index: 1000;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-      display: none;
-      min-width: 180px;
-    }
+    /* Context menu */
+    #context-menu { position: fixed; background: #252526; border: 1px solid #454545; border-radius: 4px; padding: 4px 0; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: none; min-width: 180px; }
     #context-menu.visible { display: block; }
-    .ctx-item {
-      padding: 6px 16px;
-      cursor: pointer;
-      font-size: 13px;
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-    }
+    .ctx-item { padding: 6px 16px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; gap: 16px; }
     .ctx-item:hover { background: #094771; }
-    .ctx-item kbd {
-      color: #888;
-      font-family: var(--axiom-font-mono);
-      font-size: 11px;
-    }
-    .ctx-sep {
-      height: 1px;
-      background: #454545;
-      margin: 4px 0;
-    }
+    .ctx-item kbd { color: #888; font-family: var(--axiom-font-mono); font-size: 11px; }
+    .ctx-sep { height: 1px; background: #454545; margin: 4px 0; }
 
-    /* ── Notification toasts ────────────────────────────────────── */
-    #toast-container {
-      position: fixed;
-      bottom: 28px;
-      right: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 2000;
-    }
-    .toast {
-      padding: 8px 14px;
-      border-radius: 4px;
-      font-size: 13px;
-      background: #333;
-      border-left: 4px solid #007acc;
-      color: #ccc;
-      max-width: 320px;
-      animation: slide-in 0.2s ease;
-    }
+    /* Toasts */
+    #toast-container { position: fixed; bottom: 28px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 2000; }
+    .toast { padding: 8px 14px; border-radius: 4px; font-size: 13px; background: #333; border-left: 4px solid #007acc; color: #ccc; max-width: 320px; animation: slide-in 0.2s ease; }
     .toast.error { border-left-color: #f44747; }
     .toast.success { border-left-color: #4ec9b0; }
     .toast.warning { border-left-color: #dcdcaa; }
-    @keyframes slide-in {
-      from { transform: translateX(20px); opacity: 0; }
-      to   { transform: translateX(0);    opacity: 1; }
-    }
+    @keyframes slide-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* ── Command palette overlay ────────────────────────────────── */
-    #command-palette {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 900;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 80px;
-    }
+    /* Command palette */
+    #command-palette { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 900; align-items: flex-start; justify-content: center; padding-top: 80px; }
     #command-palette.visible { display: flex; }
-    #command-palette-box {
-      background: #252526;
-      border: 1px solid #454545;
-      border-radius: 6px;
-      width: 560px;
-      max-height: 420px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    }
-    #command-input {
-      padding: 10px 14px;
-      background: transparent;
-      border: none;
-      border-bottom: 1px solid #454545;
-      color: var(--axiom-fg-primary);
-      font-size: 14px;
-      outline: none;
-      font-family: var(--axiom-font-sans);
-    }
-    #command-results {
-      overflow-y: auto;
-      max-height: 360px;
-    }
-    .cmd-item {
-      padding: 8px 14px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-    }
+    #command-palette-box { background: #252526; border: 1px solid #454545; border-radius: 6px; width: 560px; max-height: 420px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+    #command-input { padding: 10px 14px; background: transparent; border: none; border-bottom: 1px solid #454545; color: var(--axiom-fg-primary); font-size: 14px; outline: none; }
+    #command-results { overflow-y: auto; max-height: 360px; }
+    .cmd-item { padding: 8px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
     .cmd-item:hover, .cmd-item.selected { background: #094771; }
     .cmd-item .cmd-label { display: flex; align-items: center; gap: 8px; }
-    .cmd-item .cmd-key {
-      font-size: 11px;
-      color: #888;
-      font-family: var(--axiom-font-mono);
-    }
+    .cmd-item .cmd-key { font-size: 11px; color: #888; font-family: var(--axiom-font-mono); }
 
-    /* ── Scrollbars fines ───────────────────────────────────────── */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
@@ -450,127 +105,68 @@
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════════════════════════
-     STRUCTURE PRINCIPALE
-     ════════════════════════════════════════════════════════════════ -->
 <div id="app">
-
-  <!-- Title bar -->
   <div id="titlebar">
     <div class="title-menus">
-      <span class="menu-item" data-menu="file">Fichier</span>
-      <span class="menu-item" data-menu="edit">Édition</span>
-      <span class="menu-item" data-menu="view">Affichage</span>
-      <span class="menu-item" data-menu="go">Aller</span>
-      <span class="menu-item" data-menu="run">Exécuter</span>
-      <span class="menu-item" data-menu="terminal">Terminal</span>
+      <span class="menu-item">Fichier</span>
+      <span class="menu-item">Édition</span>
+      <span class="menu-item">Affichage</span>
+      <span class="menu-item">Aller</span>
+      <span class="menu-item">Exécuter</span>
+      <span class="menu-item">Terminal</span>
     </div>
     <span id="title-text">Axiom IDE</span>
   </div>
 
-  <!-- Activity bar -->
   <div id="activity-bar">
     <div class="activity-icon active" data-panel="explorer" title="Explorateur">📁</div>
-    <div class="activity-icon" data-panel="search"   title="Rechercher">🔍</div>
-    <div class="activity-icon" data-panel="scm"      title="Contrôle de source">⑂</div>
-    <div class="activity-icon" data-panel="debug"    title="Débogage">▷</div>
+    <div class="activity-icon" data-panel="search" title="Rechercher">🔍</div>
+    <div class="activity-icon" data-panel="scm" title="Source">⑂</div>
+    <div class="activity-icon" data-panel="debug" title="Debug">▷</div>
     <div class="activity-icon" data-panel="extensions" title="Extensions">⧉</div>
     <div class="spacer"></div>
-    <div class="activity-icon" data-panel="ai"       title="AI Assistant">✦</div>
+    <div class="activity-icon" data-panel="ai" title="AI">✦</div>
     <div class="activity-icon" data-panel="settings" title="Paramètres">⚙</div>
   </div>
 
-  <!-- Sidebar -->
   <div id="sidebar">
     <div id="sidebar-header">Explorateur</div>
     <div id="sidebar-content">
-      <!-- Généré dynamiquement par JS / backend -->
-      <div class="tree-item dir">
-        <span class="tree-indent"></span>
-        <span class="icon">▼</span>
-        <span>AXIOM</span>
-      </div>
-      <div class="tree-item">
-        <span class="tree-indent"></span>
-        <span class="tree-indent"></span>
-        <span class="icon">📄</span>
-        <span>main.go</span>
-      </div>
-      <div class="tree-item">
-        <span class="tree-indent"></span>
-        <span class="tree-indent"></span>
-        <span class="icon">📄</span>
-        <span>go.mod</span>
-      </div>
-      <div class="tree-item dir">
-        <span class="tree-indent"></span>
-        <span class="tree-indent"></span>
-        <span class="icon">▶</span>
-        <span>core/</span>
-      </div>
-      <div class="tree-item dir">
-        <span class="tree-indent"></span>
-        <span class="tree-indent"></span>
-        <span class="icon">▶</span>
-        <span>modules/</span>
-      </div>
-      <div class="tree-item dir">
-        <span class="tree-indent"></span>
-        <span class="tree-indent"></span>
-        <span class="icon">▶</span>
-        <span>frontend/</span>
-      </div>
+      <div class="tree-item dir"><span class="tree-indent"></span><span>▼</span><span>AXIOM</span></div>
+      <div class="tree-item"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>main.go</span></div>
+      <div class="tree-item"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>go.mod</span></div>
+      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>core/</span></div>
+      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>modules/</span></div>
+      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>frontend/</span></div>
     </div>
   </div>
 
-  <!-- Editor area -->
   <div id="editor-area">
-
-    <!-- Tab bar -->
-    <div id="tab-bar">
-      <!-- Les onglets sont injectés dynamiquement -->
-    </div>
-
-    <!-- Breadcrumb -->
-    <div id="breadcrumb">
-      <span>Axiom</span>
-    </div>
-
-    <!-- Editor content -->
+    <div id="tab-bar"></div>
+    <div id="breadcrumb"><span>Axiom</span></div>
     <div id="editor-content">
-      <!-- Écran de bienvenue -->
       <div id="welcome">
         <h1>Axiom IDE</h1>
         <div class="shortcuts">
-          <span>Ouvrir un fichier</span>       <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
-          <span>Nouveau fichier</span>          <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
-          <span>Palette de commandes</span>     <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
-          <span>Explorateur</span>              <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></span>
-          <span>Recherche</span>                <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span>
-          <span>Terminal</span>                 <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
+          <span>Ouvrir un fichier</span>   <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
+          <span>Nouveau fichier</span>      <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
+          <span>Palette commandes</span>    <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
+          <span>Terminal</span>             <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
         </div>
       </div>
-      <!-- Zone d'édition réelle (Monaco/CodeMirror ici) -->
       <div id="code-editor"></div>
     </div>
-
-    <!-- Bottom panel (terminal / problèmes / sortie) -->
     <div id="bottom-panel">
       <div class="panel-resize-handle" id="panel-resize"></div>
       <div id="panel-tabs">
         <span class="panel-tab active" data-panel="problems">Problèmes</span>
-        <span class="panel-tab"        data-panel="output">Sortie</span>
-        <span class="panel-tab"        data-panel="terminal">Terminal</span>
-        <span class="panel-tab"        data-panel="debug-console">Console de débogage</span>
+        <span class="panel-tab" data-panel="output">Sortie</span>
+        <span class="panel-tab" data-panel="terminal">Terminal</span>
       </div>
-      <div id="panel-content">
-        <!-- Contenu du panel actif -->
-      </div>
+      <div id="panel-content"></div>
     </div>
+  </div>
 
-  </div><!-- /editor-area -->
-
-  <!-- Status bar -->
   <div id="statusbar">
     <div class="status-item" id="status-branch">⑂ main</div>
     <div class="status-item" id="status-errors">✕ 0  ⚠ 0</div>
@@ -578,377 +174,247 @@
     <div class="status-item" id="status-lang">Go</div>
     <div class="status-item" id="status-cursor">Ln 1, Col 1</div>
     <div class="status-item" id="status-encoding">UTF-8</div>
-    <div class="status-item" id="status-eol">LF</div>
     <div class="status-item" id="status-engine">✓ Engine</div>
-  </div>
-
-</div><!-- /app -->
-
-<!-- ════════════════════════════════════════════════════════════════
-     OVERLAYS
-     ════════════════════════════════════════════════════════════════ -->
-
-<!-- Command palette -->
-<div id="command-palette">
-  <div id="command-palette-box">
-    <input id="command-input" type="text" placeholder="> Taper une commande..." autocomplete="off" spellcheck="false">
-    <div id="command-results"></div>
   </div>
 </div>
 
-<!-- Context menu -->
+<div id="command-palette">
+  <div id="command-palette-box">
+    <input id="command-input" type="text" placeholder="> Taper une commande..." autocomplete="off">
+    <div id="command-results"></div>
+  </div>
+</div>
 <div id="context-menu"></div>
-
-<!-- Toast notifications -->
 <div id="toast-container"></div>
 
-<!-- ════════════════════════════════════════════════════════════════
-     SCRIPTS
-     ════════════════════════════════════════════════════════════════ -->
 <script src="./axiom-ui-components.js" defer></script>
 <script>
 'use strict';
 
-// ── État global ───────────────────────────────────────────────────
-const state = {
-  openTabs: [],         // [{id, path, title, dirty, language}]
-  activeTab: null,      // id
-  sidebarPanel: 'explorer',
-  bottomVisible: false,
-  bottomHeight: 200,
-};
+const state = { openTabs: [], activeTab: null, bottomVisible: false };
 
-// ── Utilitaires ───────────────────────────────────────────────────
-function toast(msg, type = 'info', duration = 3000) {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
+function toast(msg, type, ms) {
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type||'info');
   el.textContent = msg;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), duration);
+  setTimeout(function(){ el.remove(); }, ms||3000);
 }
 
-function ext(path) {
-  const m = path.match(/\.([^.]+)$/);
-  return m ? m[1].toLowerCase() : '';
-}
+function ext(p){ var m=p.match(/\.([^.]+)$/); return m?m[1].toLowerCase():''; }
+function langIcon(p){ return ({go:'🐹',js:'📜',ts:'📘',json:'📋',md:'📝',html:'🌐',css:'🎨',rs:'🦀',py:'🐍'})[ext(p)]||'📄'; }
+function langName(p){ return ({go:'Go',js:'JavaScript',ts:'TypeScript',json:'JSON',md:'Markdown',html:'HTML',css:'CSS',rs:'Rust',py:'Python'})[ext(p)]||'Texte'; }
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function langIcon(path) {
-  const e = ext(path);
-  const map = { go:'🐹', js:'📜', ts:'📘', jsx:'⚛', tsx:'⚛',
-                html:'🌐', css:'🎨', json:'📋', md:'📝',
-                rs:'🦀', py:'🐍', sh:'🖥', toml:'⚙', yaml:'📦', yml:'📦' };
-  return map[e] || '📄';
-}
-
-function langName(path) {
-  const e = ext(path);
-  const map = { go:'Go', js:'JavaScript', ts:'TypeScript', jsx:'JavaScript React',
-                tsx:'TypeScript React', html:'HTML', css:'CSS', json:'JSON',
-                md:'Markdown', rs:'Rust', py:'Python', sh:'Shell',
-                toml:'TOML', yaml:'YAML', yml:'YAML' };
-  return map[e] || 'Texte brut';
-}
-
-// ── Tab management ────────────────────────────────────────────────
-function openTab(path, content = '') {
-  const existing = state.openTabs.find(t => t.path === path);
-  if (existing) { activateTab(existing.id); return; }
-
-  const id = 'tab-' + Date.now();
-  const parts = path.split(/[/\\]/);
-  const title = parts[parts.length - 1];
-  state.openTabs.push({ id, path, title, dirty: false, language: langName(path), content });
+function openTab(path, content) {
+  var ex = state.openTabs.find(function(t){ return t.path===path; });
+  if(ex){ activateTab(ex.id); return; }
+  var id = 'tab-'+Date.now();
+  var parts = path.split(/[/\\]/);
+  state.openTabs.push({id:id, path:path, title:parts[parts.length-1], dirty:false, language:langName(path), content:content||''});
   activateTab(id);
-  renderTabs();
 }
 
 function closeTab(id) {
-  const idx = state.openTabs.findIndex(t => t.id === id);
-  if (idx === -1) return;
-  state.openTabs.splice(idx, 1);
-  if (state.activeTab === id) {
-    const next = state.openTabs[Math.max(0, idx - 1)];
-    state.activeTab = next ? next.id : null;
-  }
-  renderTabs();
-  renderEditor();
+  var idx = state.openTabs.findIndex(function(t){ return t.id===id; });
+  if(idx===-1) return;
+  state.openTabs.splice(idx,1);
+  if(state.activeTab===id){ var n=state.openTabs[Math.max(0,idx-1)]; state.activeTab=n?n.id:null; }
+  renderTabs(); renderEditor();
 }
 
-function activateTab(id) {
-  state.activeTab = id;
-  renderTabs();
-  renderEditor();
-}
+function activateTab(id){ state.activeTab=id; renderTabs(); renderEditor(); }
 
 function renderTabs() {
-  const bar = document.getElementById('tab-bar');
-  bar.innerHTML = '';
-  state.openTabs.forEach(tab => {
-    const el = document.createElement('div');
-    el.className = 'editor-tab' + (tab.id === state.activeTab ? ' active' : '') + (tab.dirty ? ' dirty' : '');
-    el.dataset.id = tab.id;
-    el.innerHTML = `<span>${langIcon(tab.path)} ${tab.title}</span><span class="tab-close" data-close="${tab.id}">✕</span>`;
-    el.addEventListener('click', e => {
-      if (e.target.dataset.close) { closeTab(e.target.dataset.close); return; }
-      activateTab(tab.id);
-    });
+  var bar=document.getElementById('tab-bar'); bar.innerHTML='';
+  state.openTabs.forEach(function(tab){
+    var el=document.createElement('div');
+    el.className='editor-tab'+(tab.id===state.activeTab?' active':'')+(tab.dirty?' dirty':'');
+    el.innerHTML='<span>'+langIcon(tab.path)+' '+tab.title+'</span><span class="tab-close" data-close="'+tab.id+'">✕</span>';
+    el.addEventListener('click',function(e){ if(e.target.dataset.close){closeTab(e.target.dataset.close);return;} activateTab(tab.id); });
     bar.appendChild(el);
   });
 }
 
 function renderEditor() {
-  const welcome = document.getElementById('welcome');
-  const codeEl  = document.getElementById('code-editor');
-  const crumb   = document.getElementById('breadcrumb');
-  const langEl  = document.getElementById('status-lang');
-
-  const tab = state.openTabs.find(t => t.id === state.activeTab);
-  if (!tab) {
-    welcome.style.display = 'flex';
-    codeEl.classList.remove('visible');
-    crumb.innerHTML = '<span>Axiom</span>';
-    langEl.textContent = '';
-    return;
-  }
-
-  welcome.style.display = 'none';
-  codeEl.classList.add('visible');
-
-  // Breadcrumb
-  const parts = tab.path.split(/[/\\]/);
-  crumb.innerHTML = parts.map((p, i) =>
-    `<span>${p}</span>${i < parts.length - 1 ? '<span style="color:#555"> › </span>' : ''}`
-  ).join('');
-
-  // Status bar
-  langEl.textContent = tab.language;
-
-  // TODO : brancher Monaco / CodeMirror ici
-  // Pour l'instant, affiche le contenu brut comme placeholder
-  codeEl.innerHTML = `<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">${
-    escHtml(tab.content || '// Ouvre un fichier depuis l\'explorateur\n')
-  }</pre>`;
+  var w=document.getElementById('welcome'), c=document.getElementById('code-editor');
+  var crumb=document.getElementById('breadcrumb'), lang=document.getElementById('status-lang');
+  var tab=state.openTabs.find(function(t){ return t.id===state.activeTab; });
+  if(!tab){ w.style.display='flex'; c.classList.remove('visible'); crumb.innerHTML='<span>Axiom</span>'; lang.textContent=''; return; }
+  w.style.display='none'; c.classList.add('visible');
+  var parts=tab.path.split(/[/\\]/);
+  crumb.innerHTML=parts.map(function(p,i){ return '<span>'+p+'</span>'+(i<parts.length-1?'<span style="color:#555"> › </span>':''); }).join('');
+  lang.textContent=tab.language;
+  c.innerHTML='<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">'+escHtml(tab.content||'// Ouvre un fichier depuis l\'explorateur\n')+'</pre>';
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// ── Activity bar / sidebar ────────────────────────────────────────
-document.getElementById('activity-bar').addEventListener('click', e => {
-  const icon = e.target.closest('.activity-icon');
-  if (!icon) return;
-  const panel = icon.dataset.panel;
-  document.querySelectorAll('.activity-icon').forEach(i => i.classList.remove('active'));
+// Activity bar
+document.getElementById('activity-bar').addEventListener('click',function(e){
+  var icon=e.target.closest('.activity-icon'); if(!icon) return;
+  document.querySelectorAll('.activity-icon').forEach(function(i){i.classList.remove('active');});
   icon.classList.add('active');
-  state.sidebarPanel = panel;
-  document.getElementById('sidebar-header').textContent = panel.toUpperCase();
+  document.getElementById('sidebar-header').textContent=(icon.dataset.panel||'').toUpperCase();
 });
 
-// ── File tree clicks ──────────────────────────────────────────────
-document.getElementById('sidebar-content').addEventListener('click', e => {
-  const item = e.target.closest('.tree-item');
-  if (!item || item.classList.contains('dir')) return;
-  const name = item.querySelector('span:last-child').textContent;
-  document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('active'));
+// File tree → try Go binding first
+document.getElementById('sidebar-content').addEventListener('click',function(e){
+  var item=e.target.closest('.tree-item'); if(!item||item.classList.contains('dir')) return;
+  var name=item.querySelector('span:last-child').textContent;
+  document.querySelectorAll('.tree-item').forEach(function(i){i.classList.remove('active');});
   item.classList.add('active');
-  openTab(name, '// Contenu de ' + name + '\n');
+  if(window.go && window.go.App && window.go.App.ReadFile){
+    window.go.App.ReadFile(name).then(function(c){ openTab(name,c); }).catch(function(){ openTab(name,''); });
+  } else { openTab(name,''); }
 });
 
-// ── Bottom panel ──────────────────────────────────────────────────
-document.querySelectorAll('.panel-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    state.bottomVisible = true;
+// Bottom panel
+document.querySelectorAll('.panel-tab').forEach(function(t){
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.panel-tab').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active'); state.bottomVisible=true;
     document.getElementById('bottom-panel').classList.add('visible');
   });
 });
 
-// Panel resize (drag)
-(function() {
-  const handle = document.getElementById('panel-resize');
-  let dragging = false, startY = 0, startH = 0;
-  handle.addEventListener('mousedown', e => {
-    dragging = true;
-    startY = e.clientY;
-    startH = document.getElementById('bottom-panel').offsetHeight;
-    document.body.style.cursor = 'ns-resize';
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const delta = startY - e.clientY;
-    const panel = document.getElementById('bottom-panel');
-    panel.style.height = Math.max(80, Math.min(600, startH + delta)) + 'px';
-  });
-  document.addEventListener('mouseup', () => {
-    dragging = false;
-    document.body.style.cursor = '';
-  });
+// Panel resize
+(function(){
+  var h=document.getElementById('panel-resize'), drag=false, sy=0, sh=0;
+  h.addEventListener('mousedown',function(e){ drag=true; sy=e.clientY; sh=document.getElementById('bottom-panel').offsetHeight; document.body.style.cursor='ns-resize'; e.preventDefault(); });
+  document.addEventListener('mousemove',function(e){ if(!drag)return; document.getElementById('bottom-panel').style.height=Math.max(80,Math.min(600,sh+(sy-e.clientY)))+'px'; });
+  document.addEventListener('mouseup',function(){ drag=false; document.body.style.cursor=''; });
 })();
 
-// ── Command palette ───────────────────────────────────────────────
-const COMMANDS = [
-  { label: 'Nouveau fichier',             key: 'Ctrl+N',          action: () => toast('Nouveau fichier — TODO', 'info') },
-  { label: 'Ouvrir un fichier',           key: 'Ctrl+O',          action: () => toast('Ouvrir — TODO', 'info') },
-  { label: 'Sauvegarder',                 key: 'Ctrl+S',          action: () => toast('Sauvegardé', 'success') },
-  { label: 'Fermer l\'onglet actif',      key: 'Ctrl+W',          action: () => state.activeTab && closeTab(state.activeTab) },
-  { label: 'Afficher le terminal',        key: 'Ctrl+`',          action: () => togglePanel() },
-  { label: 'Basculer la barre latérale',  key: 'Ctrl+B',          action: () => toggleSidebar() },
-  { label: 'Thème sombre',               key: '',                 action: () => axiomSetTheme('dark') },
-  { label: 'Thème clair',                key: '',                 action: () => axiomSetTheme('light') },
+// Command palette
+var COMMANDS=[
+  {label:'Nouveau fichier',key:'Ctrl+N',action:function(){toast('Nouveau fichier — TODO','info');}},
+  {label:'Sauvegarder',key:'Ctrl+S',action:function(){toast('Sauvegardé ✓','success',1500);}},
+  {label:"Fermer l'onglet",key:'Ctrl+W',action:function(){if(state.activeTab)closeTab(state.activeTab);}},
+  {label:'Terminal',key:'Ctrl+`',action:function(){togglePanel();}},
+  {label:'Sidebar',key:'Ctrl+B',action:function(){toggleSidebar();}},
+  {label:'Thème sombre',key:'',action:function(){axiomSetTheme('dark');}},
+  {label:'Thème clair',key:'',action:function(){axiomSetTheme('light');}},
 ];
-
-let cmdSelected = 0;
-
-function openCommandPalette() {
-  const el = document.getElementById('command-palette');
-  el.classList.add('visible');
-  const input = document.getElementById('command-input');
-  input.value = '';
-  renderCommandResults('');
-  input.focus();
-}
-function closeCommandPalette() {
-  document.getElementById('command-palette').classList.remove('visible');
-}
-
-function renderCommandResults(filter) {
-  const list = COMMANDS.filter(c => c.label.toLowerCase().includes(filter.toLowerCase()));
-  const container = document.getElementById('command-results');
-  container.innerHTML = '';
-  list.forEach((cmd, i) => {
-    const el = document.createElement('div');
-    el.className = 'cmd-item' + (i === cmdSelected ? ' selected' : '');
-    el.innerHTML = `<span class="cmd-label">⚡ ${cmd.label}</span><span class="cmd-key">${cmd.key}</span>`;
-    el.addEventListener('click', () => { cmd.action(); closeCommandPalette(); });
-    container.appendChild(el);
+var cmdSel=0;
+function openCommandPalette(){ document.getElementById('command-palette').classList.add('visible'); var i=document.getElementById('command-input'); i.value=''; cmdSel=0; renderCmds(''); i.focus(); }
+function closeCommandPalette(){ document.getElementById('command-palette').classList.remove('visible'); }
+function renderCmds(f){
+  var list=COMMANDS.filter(function(c){return c.label.toLowerCase().includes(f.toLowerCase());});
+  var ct=document.getElementById('command-results'); ct.innerHTML='';
+  list.forEach(function(cmd,i){
+    var el=document.createElement('div'); el.className='cmd-item'+(i===cmdSel?' selected':'');
+    el.innerHTML='<span class="cmd-label">⚡ '+cmd.label+'</span><span class="cmd-key">'+cmd.key+'</span>';
+    el.addEventListener('click',function(){cmd.action();closeCommandPalette();});
+    ct.appendChild(el);
   });
 }
+document.getElementById('command-input').addEventListener('input',function(e){cmdSel=0;renderCmds(e.target.value);});
+document.getElementById('command-input').addEventListener('keydown',function(e){
+  var l=document.querySelectorAll('.cmd-item');
+  if(e.key==='ArrowDown'){cmdSel=Math.min(cmdSel+1,l.length-1);renderCmds(e.target.value);}
+  else if(e.key==='ArrowUp'){cmdSel=Math.max(cmdSel-1,0);renderCmds(e.target.value);}
+  else if(e.key==='Enter'){if(l[cmdSel])l[cmdSel].click();}
+  else if(e.key==='Escape'){closeCommandPalette();}
+});
+document.getElementById('command-palette').addEventListener('click',function(e){if(e.target===document.getElementById('command-palette'))closeCommandPalette();});
 
-document.getElementById('command-input').addEventListener('input', e => {
-  cmdSelected = 0;
-  renderCommandResults(e.target.value);
+// Keyboard shortcuts
+document.addEventListener('keydown',function(e){
+  var c=e.ctrlKey||e.metaKey;
+  if(c&&e.shiftKey&&e.key==='P'){e.preventDefault();openCommandPalette();return;}
+  if(c&&e.key==='s'){e.preventDefault();toast('Sauvegardé ✓','success',1500);return;}
+  if(c&&e.key==='w'){e.preventDefault();if(state.activeTab)closeTab(state.activeTab);return;}
+  if(c&&e.key==='b'){e.preventDefault();toggleSidebar();return;}
+  if(c&&e.key==='`'){e.preventDefault();togglePanel();return;}
+  if(e.key==='Escape'){closeCommandPalette();document.getElementById('context-menu').classList.remove('visible');}
 });
 
-document.getElementById('command-input').addEventListener('keydown', e => {
-  const list = document.querySelectorAll('.cmd-item');
-  if (e.key === 'ArrowDown') { cmdSelected = Math.min(cmdSelected + 1, list.length - 1); renderCommandResults(e.target.value); }
-  else if (e.key === 'ArrowUp') { cmdSelected = Math.max(cmdSelected - 1, 0); renderCommandResults(e.target.value); }
-  else if (e.key === 'Enter') { list[cmdSelected]?.click(); }
-  else if (e.key === 'Escape') { closeCommandPalette(); }
-});
-
-document.getElementById('command-palette').addEventListener('click', e => {
-  if (e.target === document.getElementById('command-palette')) closeCommandPalette();
-});
-
-// ── Keyboard shortcuts ────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  const ctrl = e.ctrlKey || e.metaKey;
-  if (ctrl && e.shiftKey && e.key === 'P') { e.preventDefault(); openCommandPalette(); return; }
-  if (ctrl && e.key === 's') { e.preventDefault(); toast('Sauvegardé ✓', 'success', 1500); return; }
-  if (ctrl && e.key === 'w') { e.preventDefault(); state.activeTab && closeTab(state.activeTab); return; }
-  if (ctrl && e.key === 'b') { e.preventDefault(); toggleSidebar(); return; }
-  if (ctrl && e.key === '`') { e.preventDefault(); togglePanel(); return; }
-  if (e.key === 'Escape') { closeCommandPalette(); hideContextMenu(); }
-});
-
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const ab = document.getElementById('activity-bar');
-  const hidden = sb.style.display === 'none';
-  sb.style.display = hidden ? '' : 'none';
-  document.getElementById('app').style.gridTemplateColumns = hidden ? '48px 240px 1fr' : '48px 0 1fr';
+function toggleSidebar(){
+  var sb=document.getElementById('sidebar'); var hidden=sb.style.display==='none';
+  sb.style.display=hidden?'':'none';
+  document.getElementById('app').style.gridTemplateColumns=hidden?'48px 240px 1fr':'48px 0 1fr';
+}
+function togglePanel(){
+  state.bottomVisible=!state.bottomVisible;
+  document.getElementById('bottom-panel').classList.toggle('visible',state.bottomVisible);
+  if(state.bottomVisible) document.querySelector('.panel-tab').classList.add('active');
 }
 
-function togglePanel() {
-  const p = document.getElementById('bottom-panel');
-  state.bottomVisible = !state.bottomVisible;
-  p.classList.toggle('visible', state.bottomVisible);
-  if (state.bottomVisible) {
-    document.querySelector('.panel-tab')?.classList.add('active');
-  }
-}
-
-// ── Context menu ──────────────────────────────────────────────────
-function showContextMenu(x, y, items) {
-  const menu = document.getElementById('context-menu');
-  menu.innerHTML = items.map(item =>
-    item === '---'
-      ? '<div class="ctx-sep"></div>'
-      : `<div class="ctx-item" data-action="${item.action}">${item.label}${item.key ? `<kbd>${item.key}</kbd>` : ''}</div>`
-  ).join('');
-  menu.style.left = x + 'px';
-  menu.style.top  = y + 'px';
-  menu.classList.add('visible');
-
-  menu.querySelectorAll('.ctx-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const cmd = COMMANDS.find(c => c.label === el.dataset.action);
-      cmd?.action();
-      hideContextMenu();
-    });
-  });
-}
-
-function hideContextMenu() {
-  document.getElementById('context-menu').classList.remove('visible');
-}
-
-document.addEventListener('contextmenu', e => {
+// Context menu
+document.addEventListener('contextmenu',function(e){
   e.preventDefault();
-  const items = [
-    { label: 'Nouveau fichier', action: 'Nouveau fichier', key: 'Ctrl+N' },
-    '---',
-    { label: 'Copier', action: '', key: 'Ctrl+C' },
-    { label: 'Coller', action: '', key: 'Ctrl+V' },
-    '---',
-    { label: 'Palette de commandes', action: '', key: 'Ctrl+⇧+P' },
-  ];
-  showContextMenu(e.clientX, e.clientY, items);
+  var menu=document.getElementById('context-menu');
+  menu.innerHTML='<div class="ctx-item" onclick="openCommandPalette()">Palette de commandes <kbd>Ctrl+⇧+P</kbd></div><div class="ctx-sep"></div><div class="ctx-item">Copier <kbd>Ctrl+C</kbd></div><div class="ctx-item">Coller <kbd>Ctrl+V</kbd></div>';
+  menu.style.left=e.clientX+'px'; menu.style.top=e.clientY+'px';
+  menu.classList.add('visible');
 });
-document.addEventListener('click', hideContextMenu);
+document.addEventListener('click',function(){document.getElementById('context-menu').classList.remove('visible');});
 
-// ── Status bar cursor tracking ────────────────────────────────────
-document.getElementById('editor-content').addEventListener('click', () => {
-  // Sera relié à l'API Monaco/CodeMirror
-  document.getElementById('status-cursor').textContent = 'Ln 1, Col 1';
+// ════════════════════════════════════════════════════════════════
+// WAILS v2 BRIDGE
+// Go → JS : window.runtime.EventsOn("axiom:event", callback)
+// JS → Go : window.runtime.EventsEmit("axiom:input", data)
+//         + window.go.App.MethodName() pour les appels bindés
+// ════════════════════════════════════════════════════════════════
+window.addEventListener('load', function() {
+  // Attendre que le runtime Wails v2 soit injecté
+  var checkRuntime = function(attempt) {
+    if (window.runtime) {
+      initWailsBridge();
+    } else if (attempt < 20) {
+      setTimeout(function(){ checkRuntime(attempt+1); }, 100);
+    } else {
+      console.log('[Axiom] Running without Wails runtime (browser mode)');
+    }
+  };
+  checkRuntime(0);
 });
 
-// ── Wails bridge (disponible uniquement dans le contexte Wails) ───
-// Écoute les events Go → JS quand le runtime Wails est présent.
-if (typeof window.runtime !== 'undefined') {
-  window.runtime.EventsOn('axiom:event', (event) => {
-    console.log('[Axiom] Go→JS event:', event.topic, event.payload);
-    // Dispatcher ici selon event.topic
-    switch (event.topic) {
+function initWailsBridge() {
+  console.log('[Axiom] Wails v2 runtime detected, initializing bridge...');
+
+  // Go → JS : écoute les événements Axiom émis par runtime.EventsEmit
+  window.runtime.EventsOn('axiom:event', function(event) {
+    if (!event || !event.topic) return;
+    console.log('[Axiom] Go→JS:', event.topic);
+    switch(event.topic) {
       case 'file.opened':
-        openTab(event.payload.path, event.payload.content);
+        if(event.payload && event.payload.path) openTab(event.payload.path, event.payload.content||'');
         break;
       case 'ui.theme.set':
-        axiomSetTheme(event.payload.theme_id);
+        if(event.payload && event.payload.theme_id) axiomSetTheme(event.payload.theme_id);
         break;
-      case 'editor.tab.changed':
-        // Sync tabs si besoin
+      case 'workspace.restored':
+        toast('Workspace restauré (' + ((event.payload&&event.payload.tabs_restored)||0) + ' onglets)', 'success', 2000);
+        break;
+      case 'ai.response':
+        if(event.payload && !event.payload.success) toast('AI: '+event.payload.error, 'error', 4000);
+        break;
+      case 'system.module.loaded':
+        if(event.payload) console.log('[Axiom] Module loaded:', event.payload.module_id);
         break;
     }
   });
-  // Dans le bloc Wails bridge existant
-    window.runtime.EventsOn('axiom:window:content', (data) => {
-        const el = document.getElementById(data.id);
-        if (el) el.innerHTML = data.html;
+
+  // Contenu fenêtre logique
+  window.runtime.EventsOn('axiom:window:content', function(data) {
+    if(data && data.id){ var el=document.getElementById(data.id); if(el) el.innerHTML=data.html||''; }
+  });
+
+  // Helper JS → Go (events)
+  window.axiomEmit = function(eventType, data) {
+    window.runtime.EventsEmit('axiom:input', {
+      window_id: 'main', event_type: eventType, data: data||{}
     });
-    window.runtime.EventsOn('axiom:eval', (data) => {
-        try { eval(data.script); } catch(e) { console.error(e); }
-    });
+  };
+
+  document.getElementById('status-engine').textContent = '✓ Engine Connected';
+  console.log('[Axiom] Wails v2 bridge ready');
 }
 
-// ── Init ──────────────────────────────────────────────────────────
+// Init
 renderTabs();
 renderEditor();
+console.log('[Axiom IDE] Frontend ready');
 </script>
-
 </body>
 </html>

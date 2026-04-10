@@ -1,9 +1,13 @@
 {
+  "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "Axiom IDE",
   "outputfilename": "axiom",
   "frontend": {
     "dir": "./frontend",
-    "devServerURL": ""
+    "install": "",
+    "build": "",
+    "dev:watcher": "",
+    "dev:serverUrl": "auto"
   },
   "author": {
     "name": "Axiom Core Team",
