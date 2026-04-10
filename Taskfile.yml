@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  APP_NAME: axiom
+  BUILD_DIR: build
+
+tasks:
+  build:
+    cmds:
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}}.exe -ldflags="-s -w" ./
+    platforms: [windows]
+
+  build:linux:
+    cmds:
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+
+  build:darwin:
+    cmds:
+      - go build -tags wails -o {{.BUILD_DIR}}/{{.APP_NAME}} -ldflags="-s -w" ./
+
+  dev:
+    cmds:
+      - go run -tags wails ./
+
+  run:
+    cmds:
+      - go run ./
+
+  test:
+    cmds:
+      - go test ./...
+
+  clean:
+    cmds:
+      - cmd /c if exist build\axiom.exe del build\axiom.exe
+    platforms: [windows]
