@@ -1,4 +1,3 @@
-// app.go
 //go:build wails
 
 package main
@@ -7,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/axiom-ide/axiom/api"
 	axiomconfig "github.com/axiom-ide/axiom/core/config"
@@ -21,30 +22,28 @@ import (
 )
 
 // App est le struct central exposé au frontend via Wails.
-// Toutes les méthodes publiques deviennent automatiquement
-// des fonctions appelables depuis le JavaScript.
+// Toutes les méthodes publiques deviennent des fonctions appelables depuis le JS.
 type App struct {
-	ctx      context.Context
-	eng      *engine.Engine
-	tabMgr   *tabs.Manager
-	persist  *workspace.Persistence
-	runner   *module.Runner
-	fsHdlr   *filesystem.Handler
-	adapter  *wailsadapter.Adapter
-	cfg      axiomconfig.Config
-	logger   *slog.Logger
+	ctx     context.Context
+	cancel  context.CancelFunc
+	eng     *engine.Engine
+	tabMgr  *tabs.Manager
+	persist *workspace.Persistence
+	runner  *module.Runner
+	fsHdlr  *filesystem.Handler
+	adapter *wailsadapter.Adapter
+	cfg     axiomconfig.Config
+	logger  *slog.Logger
 }
 
-// NewApp crée l'instance App (appelé par main_wails.go).
+// NewApp crée l'instance App.
 func NewApp() *App {
-	return &App{
-		logger: slog.Default(),
-	}
+	return &App{logger: slog.Default()}
 }
 
-// startup est appelé par Wails au démarrage de la fenêtre.
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+// Startup initialise le moteur Axiom. Appelé depuis main() AVANT app.Run().
+func (a *App) Startup(wailsApp *application.App) {
+	a.ctx, a.cancel = context.WithCancel(context.Background())
 
 	// ── Config ──────────────────────────────────────────────────
 	cfg, warnings := axiomconfig.Load("")
@@ -66,7 +65,7 @@ func (a *App) startup(ctx context.Context) {
 	a.eng = eng
 
 	// ── FileSystem ───────────────────────────────────────────────
-	fsPub := &enginePublisherProxy{eng: eng}
+	fsPub := &appEngineProxy{eng: eng}
 	fsHdlr, err := filesystem.NewHandler(filesystem.Config{
 		WorkspaceDir:   cfg.Core.WorkspaceDir,
 		MaxFileSizeMB:  cfg.FileSystem.MaxFileSizeMB,
@@ -74,18 +73,17 @@ func (a *App) startup(ctx context.Context) {
 		BackupOnWrite:  cfg.FileSystem.BackupOnWrite,
 	}, fsPub, a.logger)
 	if err != nil {
-		a.logger.Warn("filesystem init failed", slog.String("error", err.Error()))
+		a.logger.Warn("filesystem init failed (non-fatal)", slog.String("error", err.Error()))
 	}
 	a.fsHdlr = fsHdlr
 
-	// ── Wails adapter bidirectionnel ─────────────────────────────
-	adapter := wailsadapter.NewAdapter(ctx, a.logger)
+	// ── Wails v3 Adapter ─────────────────────────────────────────
+	adapter := wailsadapter.NewAdapter(wailsApp, a.logger)
 	adapter.RegisterBidirectional(eng.Bus())
 	a.adapter = adapter
 
 	// ── Orchestrator ─────────────────────────────────────────────
-	orch := orchestrator.NewOrchestrator(adapter, eng.Bus(), a.logger)
-	_ = orch
+	_ = orchestrator.NewOrchestrator(adapter, eng.Bus(), a.logger)
 
 	// ── Tab Manager ───────────────────────────────────────────────
 	a.tabMgr = tabs.NewManager(eng.Bus(), a.logger)
@@ -116,18 +114,18 @@ func (a *App) startup(ctx context.Context) {
 	a.tabMgr.Start()
 	a.persist.Start()
 
-	engProxy := &engineProxy{eng: eng}
-	if errs := a.runner.InitAll(eng.Context(), engProxy, engProxy); len(errs) > 0 {
+	engProxy := &appEngineProxy{eng: eng}
+	if errs := a.runner.InitAll(a.ctx, engProxy, engProxy); len(errs) > 0 {
 		for _, e := range errs {
 			a.logger.Warn("module init error", slog.String("error", e.Error()))
 		}
 	}
 
-	a.logger.Info("axiom wails: ready ✓")
+	a.logger.Info("axiom wails v3: ready ✓")
 }
 
-// shutdown est appelé par Wails à la fermeture.
-func (a *App) shutdown(ctx context.Context) {
+// Shutdown est appelé à la fermeture de l'application.
+func (a *App) Shutdown() {
 	if a.persist != nil {
 		_ = a.persist.SaveSync()
 	}
@@ -137,13 +135,16 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.eng != nil {
 		a.eng.Shutdown()
 	}
+	if a.cancel != nil {
+		a.cancel()
+	}
 }
 
 // ─────────────────────────────────────────────
 // MÉTHODES BINDÉES (appelables depuis le JS)
 // ─────────────────────────────────────────────
 
-// ReadFile lit un fichier du workspace et retourne son contenu.
+// ReadFile lit un fichier du workspace.
 func (a *App) ReadFile(path string) (string, error) {
 	if a.fsHdlr == nil {
 		return "", fmt.Errorf("filesystem not initialized")
@@ -176,42 +177,34 @@ func (a *App) SetTheme(themeID string) error {
 	if a.eng == nil {
 		return fmt.Errorf("engine not initialized")
 	}
-	return a.eng.Dispatch("engine", api.TopicUISetTheme, api.PayloadUITheme{
-		ThemeID: themeID,
-	})
+	return a.eng.Dispatch("engine", api.TopicUISetTheme, api.PayloadUITheme{ThemeID: themeID})
 }
 
 // GetConfig retourne la config courante (sans les clés sensibles).
-func (a *App) GetConfig() map[string]interface{} {
-	return map[string]interface{}{
-		"theme":    a.cfg.UI.DefaultTheme,
-		"provider": a.cfg.AI.Provider,
-		"model":    a.cfg.AI.ModelID,
+func (a *App) GetConfig() map[string]any {
+	return map[string]any{
+		"theme":     a.cfg.UI.DefaultTheme,
+		"provider":  a.cfg.AI.Provider,
+		"model":     a.cfg.AI.ModelID,
 		"workspace": a.cfg.Core.WorkspaceDir,
 	}
 }
 
 // ─────────────────────────────────────────────
-// Proxies internes (identiques à main.go headless)
+// Proxies internes
 // ─────────────────────────────────────────────
 
-type enginePublisherProxy struct{ eng *engine.Engine }
+type appEngineProxy struct{ eng *engine.Engine }
 
-func (p *enginePublisherProxy) Subscribe(topic api.Topic, handler func(api.Event)) string {
+func (p *appEngineProxy) Subscribe(topic api.Topic, handler func(api.Event)) string {
 	return p.eng.Subscribe(topic, handler)
 }
-func (p *enginePublisherProxy) Publish(event api.Event) {
+func (p *appEngineProxy) Publish(event api.Event) {
 	_ = p.eng.Dispatch("filesystem", event.Topic, event.Payload)
 }
-
-type engineProxy struct{ eng *engine.Engine }
-
-func (p *engineProxy) Dispatch(moduleID string, topic api.Topic, payload interface{}) error {
+func (p *appEngineProxy) Dispatch(moduleID string, topic api.Topic, payload any) error {
 	return p.eng.Dispatch(moduleID, topic, payload)
 }
-func (p *engineProxy) Subscribe(topic api.Topic, handler func(api.Event)) string {
-	return p.eng.Subscribe(topic, handler)
-}
-func (p *engineProxy) Unsubscribe(topic api.Topic, subID string) {
+func (p *appEngineProxy) Unsubscribe(topic api.Topic, subID string) {
 	p.eng.Unsubscribe(topic, subID)
 }

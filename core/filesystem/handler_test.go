@@ -13,13 +13,8 @@ import (
 
 var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-// busAdapter adapte *bus.EventBus en filesystem.EventPublisher pour les tests.
-type busAdapter struct{ b *bus.EventBus }
-
-func (a *busAdapter) Subscribe(topic interface{ String() string }, handler func(interface{ GetTopic() interface{ String() string } })) string {
-	return ""
-}
-
+// newHandler crée un Handler de test dans un répertoire temporaire.
+// *bus.EventBus satisfait filesystem.EventPublisher grâce au type alias HandlerFunc = func(api.Event).
 func newHandler(t *testing.T) (*filesystem.Handler, string) {
 	t.Helper()
 	workspace := t.TempDir()

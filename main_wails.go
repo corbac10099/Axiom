@@ -4,33 +4,42 @@ package main
 
 import (
 	"embed"
+	"log"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend
 var assets embed.FS
 
 func main() {
-	app := NewApp()
+	axiomApp := NewApp()
 
-	err := wails.Run(&options.App{
-		Title:  "Axiom IDE",
-		Width:  1400,
-		Height: 900,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 30, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
-		Bind: []interface{}{
-			app,
+	app := application.New(application.Options{
+		Name:        "Axiom IDE",
+		Description: "Modular Software Engineering Platform",
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
 		},
 	})
-	if err != nil {
-		println("Error:", err.Error())
+
+	// Initialiser le moteur Axiom AVANT app.Run()
+	axiomApp.Startup(app)
+	defer axiomApp.Shutdown()
+
+	// Fenêtre principale
+	app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
+		Title:            "Axiom IDE",
+		Width:            1400,
+		Height:           900,
+		BackgroundColour: application.NewRGBA(30, 30, 30, 255),
+		URL:              "/",
+	})
+
+	// Exposer les méthodes Go au JS
+	app.Bind(axiomApp)
+
+	if err := app.Run(); err != nil {
+		log.Fatal("axiom: wails run failed:", err)
 	}
 }

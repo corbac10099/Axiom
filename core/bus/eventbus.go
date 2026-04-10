@@ -13,7 +13,9 @@ import (
 )
 
 // HandlerFunc est la signature d'un abonné à un Topic.
-type HandlerFunc func(event api.Event)
+// IMPORTANT: alias de type (=) et non type nommé — garantit que
+// func(api.Event) et HandlerFunc sont identiques pour la satisfaction d'interface.
+type HandlerFunc = func(api.Event)
 
 type subscription struct {
 	id      string
@@ -28,11 +30,10 @@ type topicRouter struct {
 
 // EventBus est le bus d'événements central d'Axiom.
 type EventBus struct {
-	mu         sync.RWMutex
-	routers    map[api.Topic]*topicRouter
-	bufferSize int
-	wg         sync.WaitGroup
-	// BUG FIX: protéger shutdown contre double-appel
+	mu           sync.RWMutex
+	routers      map[api.Topic]*topicRouter
+	bufferSize   int
+	wg           sync.WaitGroup
 	shutdownOnce sync.Once
 	logger       *slog.Logger
 }
@@ -93,7 +94,6 @@ func (eb *EventBus) Unsubscribe(topic api.Topic, subID string) {
 }
 
 // Publish envoie un événement de manière NON-BLOQUANTE.
-// BUG FIX: on vérifie si le bus est en cours d'arrêt avant de publier.
 func (eb *EventBus) Publish(event api.Event) {
 	if event.ID == "" {
 		event.ID = uuid.New().String()
@@ -154,7 +154,6 @@ func (eb *EventBus) PublishSync(event api.Event) {
 }
 
 // newRouter crée un topicRouter et lance sa goroutine de dispatch.
-// DOIT être appelé sous eb.mu.Lock().
 func (eb *EventBus) newRouter(topic api.Topic) *topicRouter {
 	router := &topicRouter{
 		eventChannel: make(chan api.Event, eb.bufferSize),
@@ -183,7 +182,6 @@ func (eb *EventBus) dispatchLoop(topic api.Topic, router *topicRouter) {
 }
 
 // shutdown ferme proprement tous les channels.
-// BUG FIX: sync.Once empêche tout double-close (panic sur channel déjà fermé).
 func (eb *EventBus) shutdown() {
 	eb.shutdownOnce.Do(func() {
 		eb.logger.Info("bus: shutting down...")
