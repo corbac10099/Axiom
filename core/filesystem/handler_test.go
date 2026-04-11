@@ -13,8 +13,6 @@ import (
 
 var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-// newHandler crée un Handler de test dans un répertoire temporaire.
-// *bus.EventBus satisfait filesystem.EventPublisher grâce au type alias HandlerFunc = func(api.Event).
 func newHandler(t *testing.T) (*filesystem.Handler, string) {
 	t.Helper()
 	workspace := t.TempDir()
@@ -102,6 +100,23 @@ func TestListDir(t *testing.T) {
 	}
 	if !names["a.go"] || !names["b.go"] {
 		t.Errorf("expected a.go and b.go in listing, got %v", names)
+	}
+}
+
+func TestListDirModTime(t *testing.T) {
+	h, _ := newHandler(t)
+	_ = h.CreateFile("test.go", "")
+
+	entries, err := h.ListDir(".")
+	if err != nil {
+		t.Fatalf("ListDir failed: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one entry")
+	}
+	// ModTime is now int64 Unix ms — must be positive
+	if entries[0].ModTime <= 0 {
+		t.Errorf("expected positive ModTime (Unix ms), got %d", entries[0].ModTime)
 	}
 }
 

@@ -9,19 +9,20 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/axiom-ide/axiom/api"
 	"github.com/axiom-ide/axiom/pkg/uid"
 )
 
 // FileEntry est la description d'un fichier ou dossier dans le workspace.
+// ModTime est en millisecondes Unix — time.Time n'est pas supporté
+// dans les bindings TypeScript générés par Wails.
 type FileEntry struct {
-	Path    string    `json:"path"`
-	Name    string    `json:"name"`
-	IsDir   bool      `json:"is_dir"`
-	Size    int64     `json:"size"`
-	ModTime time.Time `json:"mod_time"`
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	IsDir   bool   `json:"is_dir"`
+	Size    int64  `json:"size"`
+	ModTime int64  `json:"mod_time"` // Unix ms
 }
 
 // ReadResult est le résultat d'une opération de lecture.
@@ -39,18 +40,15 @@ type OperationResult struct {
 }
 
 // Handler s'abonne aux Topics FILE_* du bus et opère sur le FS réel.
-// BUG FIX: prend EventPublisher (interface) au lieu de *bus.EventBus (concret).
 type Handler struct {
 	mu             sync.RWMutex
 	workspaceDir   string
 	maxFileSizeMB  int
 	ignorePatterns []string
 	backupOnWrite  bool
-
-	// BUG FIX: utilise l'interface, pas le type concret
-	bus    EventPublisher
-	logger *slog.Logger
-	subIDs []string
+	bus            EventPublisher
+	logger         *slog.Logger
+	subIDs         []string
 }
 
 // Config regroupe les paramètres du FileSystem Handler.
@@ -62,7 +60,6 @@ type Config struct {
 }
 
 // NewHandler crée un Handler et l'attache au bus.
-// BUG FIX: prend EventPublisher au lieu de *bus.EventBus.
 func NewHandler(cfg Config, eventBus EventPublisher, logger *slog.Logger) (*Handler, error) {
 	abs, err := filepath.Abs(cfg.WorkspaceDir)
 	if err != nil {
@@ -228,7 +225,7 @@ func (h *Handler) ListDir(relPath string) ([]FileEntry, error) {
 			Name:    name,
 			IsDir:   e.IsDir(),
 			Size:    info.Size(),
-			ModTime: info.ModTime(),
+			ModTime: info.ModTime().UnixMilli(), // int64 Unix ms — compatible Wails/TS
 		})
 	}
 	return result, nil
