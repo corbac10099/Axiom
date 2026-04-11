@@ -1,0 +1,20 @@
+{
+  "name": "v1",
+  "version": "1.0.0",
+  "description": "Axiom est une plateforme d'automatisation et d'intelligence artificielle pour développeurs. Il combine:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/corbac10099/Axiom.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/corbac10099/Axiom/issues"
+  },
+  "homepage": "https://github.com/corbac10099/Axiom#readme"
+}

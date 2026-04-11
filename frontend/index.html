@@ -1,1097 +1,2609 @@
 ﻿<!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Axiom IDE</title>
   <link rel="stylesheet" href="./axiom-ui-components.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; font-family: var(--axiom-font-sans); font-size: 13px; background: var(--axiom-bg-primary); color: var(--axiom-fg-primary); }
-    #app { display: grid; grid-template-rows: 30px 1fr 22px; grid-template-columns: 48px 240px 1fr; height: 100vh; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    /* Title bar */
-    #titlebar { grid-column: 1/-1; grid-row: 1; display: flex; align-items: center; justify-content: center; background: #323233; border-bottom: 1px solid var(--axiom-border); --wails-draggable: drag; user-select: none; font-size: 12px; color: #ccc; gap: 8px; }
-    #titlebar .title-menus { position: absolute; left: 8px; display: flex; gap: 2px; --wails-draggable: no-drag; }
-    #titlebar .menu-item { padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-    #titlebar .menu-item:hover { background: rgba(255,255,255,0.1); }
-    /* Logo dynamique dans la titlebar */
-    #app-logo { display: flex; align-items: center; gap: 6px; pointer-events: none; }
-    #app-logo-img { width: 16px; height: 16px; object-fit: contain; display: none; }
-    #app-logo-img.visible { display: block; }
-    #app-logo-text { font-size: 12px; color: #ccc; font-weight: 500; }
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--axiom-font-sans);
+      font-size: 13px;
+      background: var(--axiom-bg-primary);
+      color: var(--axiom-fg-primary);
+    }
 
-    /* Activity bar */
-    #activity-bar { grid-column: 1; grid-row: 2; background: #333; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; align-items: center; padding-top: 4px; gap: 2px; overflow: hidden; }
-    .activity-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.6; font-size: 22px; transition: opacity 0.15s; border-left: 2px solid transparent; flex-shrink: 0; position: relative; }
-    .activity-icon:hover { opacity: 1; }
-    .activity-icon:hover::after { content: attr(title); position: absolute; left: 54px; background: #252526; color: #ccc; padding: 3px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; border: 1px solid var(--axiom-border); z-index: 100; pointer-events: none; }
-    .activity-icon.active { opacity: 1; border-left-color: var(--axiom-fg-primary); }
-    .activity-icon.module-icon { border-left-color: transparent; }
-    .activity-icon.module-icon.active { border-left-color: var(--axiom-accent); opacity: 1; }
-    /* Badge sur les icônes de modules */
-    .activity-icon .icon-badge { position: absolute; top: 6px; right: 6px; background: var(--axiom-accent); color: #fff; font-size: 9px; border-radius: 8px; padding: 1px 4px; min-width: 14px; text-align: center; line-height: 12px; display: none; }
-    .activity-icon .icon-badge.visible { display: block; }
-    #activity-bar .spacer { flex: 1; }
-    #activity-bar-bottom { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 4px; }
+    #app {
+      display: grid;
+      grid-template-rows: 30px 1fr 22px;
+      grid-template-columns: 48px 240px 1fr;
+      height: 100vh;
+    }
 
-    /* Sidebar */
-    #sidebar { grid-column: 2; grid-row: 2; background: #252526; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; overflow: hidden; position: relative; }
-    #sidebar-header { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #bbb; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
-    #sidebar-header-actions { display: flex; gap: 4px; }
-    #sidebar-content { flex: 1; overflow-y: auto; }
-    /* Slot d'injection sidebar — les modules peuvent injecter ici */
-    #sidebar-module-slot { flex-shrink: 0; }
-    .tree-item { display: flex; align-items: center; padding: 2px 0 2px 12px; cursor: pointer; border-radius: 3px; gap: 5px; font-size: 13px; color: var(--axiom-fg-primary); white-space: nowrap; }
-    .tree-item:hover { background: #2a2d2e; }
-    .tree-item.active { background: #094771; }
-    .tree-item.dir { font-weight: 500; }
-    .tree-indent { display: inline-block; width: 16px; flex-shrink: 0; }
+    /* ─── Title bar ─── */
+    #titlebar {
+      grid-column: 1/-1;
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #323233;
+      border-bottom: 1px solid var(--axiom-border);
+      --wails-draggable: drag;
+      user-select: none;
+      font-size: 12px;
+      color: #ccc;
+      gap: 8px;
+      position: relative;
+    }
 
-    /* ─── VIEW HOST : conteneur de toutes les vues ─── */
-    #view-host { grid-column: 3; grid-row: 2; display: grid; grid-template-rows: 1fr; overflow: hidden; position: relative; }
+    #titlebar .title-menus {
+      position: absolute;
+      left: 8px;
+      display: flex;
+      gap: 2px;
+      --wails-draggable: no-drag;
+    }
 
-    /* Vue de base — éditeur */
-    .app-view { display: none; flex-direction: column; overflow: hidden; background: #1e1e1e; width: 100%; height: 100%; }
-    .app-view.active { display: flex; }
+    #titlebar .menu-item {
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      position: relative;
+    }
 
-    /* Vue "full-takeover" — prend toute la zone content (colonnes 2+3) */
-    .app-view.takeover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; }
-    /* Vue "overlay" — flottante par-dessus tout */
-    .app-view.overlay { position: fixed; top: 30px; left: 48px; right: 0; bottom: 22px; z-index: 200; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+    #titlebar .menu-item:hover,
+    #titlebar .menu-item.open {
+      background: rgba(255, 255, 255, 0.1);
+    }
 
-    /* Éditeur interne */
-    #tab-bar { display: flex; background: #2d2d2d; border-bottom: 1px solid var(--axiom-border); overflow-x: auto; flex-shrink: 0; height: 35px; scrollbar-width: none; }
-    #tab-bar::-webkit-scrollbar { display: none; }
-    /* Slot d'injection dans la tab bar (droite) */
-    #tab-bar-module-slot { display: flex; align-items: center; margin-left: auto; padding: 0 6px; gap: 4px; flex-shrink: 0; }
-    .editor-tab { display: flex; align-items: center; padding: 0 12px; gap: 6px; height: 35px; cursor: pointer; font-size: 13px; border-right: 1px solid var(--axiom-border); white-space: nowrap; background: #2d2d2d; color: #999; transition: background 0.1s; min-width: 100px; }
-    .editor-tab:hover { background: #383838; color: #ccc; }
-    .editor-tab.active { background: #1e1e1e; color: #ccc; border-top: 1px solid #007acc; }
-    .editor-tab .tab-close { font-size: 16px; opacity: 0; margin-left: auto; line-height: 1; }
-    .editor-tab:hover .tab-close, .editor-tab.active .tab-close { opacity: 0.5; }
-    .editor-tab .tab-close:hover { opacity: 1; }
-    .editor-tab.dirty::after { content: '●'; font-size: 8px; color: #e2c08d; margin-left: 4px; }
-    #breadcrumb { padding: 4px 12px; font-size: 12px; color: #888; background: #1e1e1e; border-bottom: 1px solid #333; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
-    #editor-content { flex: 1; overflow: auto; display: flex; }
-    #welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; color: #555; user-select: none; }
-    #welcome h1 { font-size: 28px; font-weight: 300; color: #666; }
-    #welcome .shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 12px; }
-    #welcome .shortcuts kbd { background: #333; border: 1px solid #555; border-radius: 3px; padding: 1px 6px; font-family: var(--axiom-font-mono); font-size: 11px; }
-    #code-editor { flex: 1; overflow: auto; display: none; font-family: var(--axiom-font-mono); font-size: 13px; line-height: 1.6; }
-    #code-editor.visible { display: block; }
+    /* Dropdown des menus */
+    .menu-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #252526;
+      border: 1px solid #454545;
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 200px;
+      z-index: 2000;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
 
-    /* Bottom panel */
-    #bottom-panel { flex-shrink: 0; height: 200px; border-top: 1px solid var(--axiom-border); background: #1e1e1e; display: none; flex-direction: column; }
-    #bottom-panel.visible { display: flex; }
-    #panel-tabs { display: flex; background: #252526; border-bottom: 1px solid var(--axiom-border); flex-shrink: 0; overflow-x: auto; }
-    /* Slot d'injection dans les panel tabs */
-    #panel-tabs-module-slot { display: flex; }
-    .panel-tab { padding: 5px 14px; font-size: 12px; cursor: pointer; color: #999; border-bottom: 2px solid transparent; white-space: nowrap; flex-shrink: 0; }
-    .panel-tab:hover { color: #ccc; }
-    .panel-tab.active { color: #ccc; border-bottom-color: #007acc; }
-    #panel-content { flex: 1; overflow: auto; padding: 8px 12px; font-family: var(--axiom-font-mono); font-size: 12px; color: #ccc; }
-    /* Slot de contenu panel injecté */
-    #panel-content-module-slot { display: none; width: 100%; height: 100%; }
-    #panel-content-module-slot.active { display: block; }
-    .panel-resize-handle { height: 4px; cursor: ns-resize; background: transparent; flex-shrink: 0; }
-    .panel-resize-handle:hover { background: #007acc44; }
+    .menu-dropdown.open {
+      display: block;
+    }
 
-    /* Status bar */
-    #statusbar { grid-column: 1/-1; grid-row: 3; background: #007acc; display: flex; align-items: center; padding: 0 8px; gap: 12px; font-size: 12px; color: white; }
-    .status-item { display: flex; align-items: center; gap: 4px; padding: 0 4px; cursor: pointer; border-radius: 2px; }
-    .status-item:hover { background: rgba(255,255,255,0.15); }
-    /* Slot d'injection dans la statusbar (gauche et droite) */
-    #statusbar-left-slot { display: flex; align-items: center; gap: 8px; }
-    #statusbar-right-slot { display: flex; align-items: center; gap: 8px; }
-    #statusbar .spacer { flex: 1; }
+    .menu-dropdown-item {
+      padding: 6px 16px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      color: #ccc;
+      user-select: none;
+    }
 
-    /* Context menu */
-    #context-menu { position: fixed; background: #252526; border: 1px solid #454545; border-radius: 4px; padding: 4px 0; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: none; min-width: 180px; }
-    #context-menu.visible { display: block; }
-    .ctx-item { padding: 6px 16px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; gap: 16px; }
-    .ctx-item:hover { background: #094771; }
-    .ctx-item kbd { color: #888; font-family: var(--axiom-font-mono); font-size: 11px; }
-    .ctx-sep { height: 1px; background: #454545; margin: 4px 0; }
+    .menu-dropdown-item:hover {
+      background: #094771;
+      color: #fff;
+    }
 
-    /* Toasts */
-    #toast-container { position: fixed; bottom: 28px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 2000; }
-    .toast { padding: 8px 14px; border-radius: 4px; font-size: 13px; background: #333; border-left: 4px solid #007acc; color: #ccc; max-width: 320px; animation: slide-in 0.2s ease; }
-    .toast.error { border-left-color: #f44747; }
-    .toast.success { border-left-color: #4ec9b0; }
-    .toast.warning { border-left-color: #dcdcaa; }
-    .toast.module { border-left-color: #9b59b6; }
-    @keyframes slide-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .menu-dropdown-item.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
 
-    /* Command palette */
-    #command-palette { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 900; align-items: flex-start; justify-content: center; padding-top: 80px; }
-    #command-palette.visible { display: flex; }
-    #command-palette-box { background: #252526; border: 1px solid #454545; border-radius: 6px; width: 560px; max-height: 420px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-    #command-input { padding: 10px 14px; background: transparent; border: none; border-bottom: 1px solid #454545; color: var(--axiom-fg-primary); font-size: 14px; outline: none; }
-    #command-results { overflow-y: auto; max-height: 360px; }
-    .cmd-item { padding: 8px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-    .cmd-item:hover, .cmd-item.selected { background: #094771; }
-    .cmd-item .cmd-label { display: flex; align-items: center; gap: 8px; }
-    .cmd-item .cmd-key { font-size: 11px; color: #888; font-family: var(--axiom-font-mono); }
+    .menu-dropdown-item kbd {
+      color: #888;
+      font-family: var(--axiom-font-mono);
+      font-size: 11px;
+    }
 
-    /* Vue module — fermer bouton */
-    .module-view-close { position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.4); border: 1px solid #555; border-radius: 4px; color: #aaa; padding: 4px 8px; cursor: pointer; font-size: 11px; transition: all 0.15s; }
-    .module-view-close:hover { background: #f44747; color: white; border-color: #f44747; }
+    .menu-dropdown-sep {
+      height: 1px;
+      background: #454545;
+      margin: 4px 0;
+    }
 
-    /* Transition de vue */
-    .app-view { transition: opacity 0.1s ease; }
-    .app-view.view-entering { animation: view-in 0.15s ease; }
-    @keyframes view-in { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+    .menu-dropdown-item.has-submenu::after {
+      content: '▶';
+      font-size: 9px;
+      margin-left: auto;
+      opacity: 0.6;
+    }
 
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    #app-logo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    #app-logo-img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      display: none;
+    }
+
+    #app-logo-img.visible {
+      display: block;
+    }
+
+    #app-logo-text {
+      font-size: 12px;
+      color: #ccc;
+      font-weight: 500;
+    }
+
+    /* ─── Activity bar ─── */
+    #activity-bar {
+      grid-column: 1;
+      grid-row: 2;
+      background: #333;
+      border-right: 1px solid var(--axiom-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 4px;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .activity-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.6;
+      font-size: 22px;
+      transition: opacity 0.15s;
+      border-left: 2px solid transparent;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .activity-icon:hover {
+      opacity: 1;
+    }
+
+    .activity-icon:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: 54px;
+      background: #252526;
+      color: #ccc;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      border: 1px solid var(--axiom-border);
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .activity-icon.active {
+      opacity: 1;
+      border-left-color: var(--axiom-fg-primary);
+    }
+
+    .activity-icon.module-icon.active {
+      border-left-color: var(--axiom-accent);
+    }
+
+    .activity-icon .icon-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: var(--axiom-accent);
+      color: #fff;
+      font-size: 9px;
+      border-radius: 8px;
+      padding: 1px 4px;
+      min-width: 14px;
+      text-align: center;
+      line-height: 12px;
+      display: none;
+    }
+
+    .activity-icon .icon-badge.visible {
+      display: block;
+    }
+
+    #activity-bar .spacer {
+      flex: 1;
+    }
+
+    #activity-bar-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding-bottom: 4px;
+    }
+
+    /* ─── Sidebar ─── */
+    #sidebar {
+      grid-column: 2;
+      grid-row: 2;
+      background: #252526;
+      border-right: 1px solid var(--axiom-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 8px 12px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #bbb;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #sidebar-header-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    #sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    #sidebar-module-slot {
+      flex-shrink: 0;
+    }
+
+    /* ─── File Tree ─── */
+    .tree-item {
+      display: flex;
+      align-items: center;
+      padding: 2px 0 2px 12px;
+      cursor: pointer;
+      border-radius: 3px;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--axiom-fg-primary);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .tree-item:hover {
+      background: #2a2d2e;
+    }
+
+    .tree-item.active {
+      background: #094771;
+    }
+
+    .tree-item.dir {
+      font-weight: 500;
+    }
+
+    .tree-item .tree-indent {
+      display: inline-block;
+      width: 16px;
+      flex-shrink: 0;
+    }
+
+    .tree-item .tree-chevron {
+      font-size: 10px;
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+
+    .tree-item.expanded>.tree-chevron {
+      transform: rotate(90deg);
+    }
+
+    .tree-item .tree-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tree-item .tree-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tree-item .tree-actions {
+      display: none;
+      gap: 2px;
+      margin-right: 4px;
+    }
+
+    .tree-item:hover .tree-actions {
+      display: flex;
+    }
+
+    .tree-action-btn {
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+      background: transparent;
+      color: #888;
+      border: none;
+      cursor: pointer;
+    }
+
+    .tree-action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ccc;
+    }
+
+    /* Drag & drop tree */
+    .tree-item.drag-over {
+      background: rgba(0, 122, 204, 0.2);
+      outline: 1px solid #007acc;
+    }
+
+    .tree-item.dragging {
+      opacity: 0.4;
+    }
+
+    /* ─── View Host ─── */
+    #view-host {
+      grid-column: 3;
+      grid-row: 2;
+      display: grid;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .app-view {
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      background: #1e1e1e;
+      width: 100%;
+      height: 100%;
+    }
+
+    .app-view.active {
+      display: flex;
+    }
+
+    .app-view.takeover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+    }
+
+    .app-view.overlay {
+      position: fixed;
+      top: 30px;
+      left: 48px;
+      right: 0;
+      bottom: 22px;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+    }
+
+    /* ─── Editor ─── */
+    #tab-bar {
+      display: flex;
+      background: #2d2d2d;
+      border-bottom: 1px solid var(--axiom-border);
+      overflow-x: auto;
+      flex-shrink: 0;
+      height: 35px;
+      scrollbar-width: none;
+      align-items: stretch;
+    }
+
+    #tab-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    #tab-bar-module-slot {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+      padding: 0 6px;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .editor-tab {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 6px;
+      height: 35px;
+      cursor: pointer;
+      font-size: 13px;
+      border-right: 1px solid var(--axiom-border);
+      white-space: nowrap;
+      background: #2d2d2d;
+      color: #999;
+      transition: background 0.1s;
+      min-width: 100px;
+      position: relative;
+      user-select: none;
+    }
+
+    .editor-tab:hover {
+      background: #383838;
+      color: #ccc;
+    }
+
+    .editor-tab.active {
+      background: #1e1e1e;
+      color: #ccc;
+      border-top: 1px solid #007acc;
+    }
+
+    .editor-tab .tab-close {
+      font-size: 16px;
+      opacity: 0;
+      margin-left: auto;
+      line-height: 1;
+    }
+
+    .editor-tab:hover .tab-close,
+    .editor-tab.active .tab-close {
+      opacity: 0.5;
+    }
+
+    .editor-tab .tab-close:hover {
+      opacity: 1;
+    }
+
+    .editor-tab.dirty::after {
+      content: '●';
+      font-size: 8px;
+      color: #e2c08d;
+      margin-left: 4px;
+    }
+
+    /* Drag tabs */
+    .editor-tab.tab-dragging {
+      opacity: 0.5;
+    }
+
+    .editor-tab.tab-drag-over {
+      box-shadow: inset 2px 0 0 #007acc;
+    }
+
+    #breadcrumb {
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #888;
+      background: #1e1e1e;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    #editor-content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      position: relative;
+    }
+
+    #welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      color: #555;
+      user-select: none;
+    }
+
+    #welcome h1 {
+      font-size: 28px;
+      font-weight: 300;
+      color: #666;
+    }
+
+    #welcome .shortcuts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 24px;
+      font-size: 12px;
+    }
+
+    #welcome .shortcuts kbd {
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-family: var(--axiom-font-mono);
+      font-size: 11px;
+    }
+
+    /* Monaco container */
+    #monaco-container {
+      flex: 1;
+      overflow: hidden;
+      display: none;
+    }
+
+    #monaco-container.visible {
+      display: block;
+    }
+
+    /* Custom editor host — pour les types enregistrés par les modules */
+    #custom-editor-host {
+      flex: 1;
+      overflow: hidden;
+      display: none;
+    }
+
+    #custom-editor-host.visible {
+      display: block;
+    }
+
+    /* ─── Bottom panel ─── */
+    #bottom-panel {
+      flex-shrink: 0;
+      height: 200px;
+      border-top: 1px solid var(--axiom-border);
+      background: #1e1e1e;
+      display: none;
+      flex-direction: column;
+    }
+
+    #bottom-panel.visible {
+      display: flex;
+    }
+
+    #panel-tabs {
+      display: flex;
+      background: #252526;
+      border-bottom: 1px solid var(--axiom-border);
+      flex-shrink: 0;
+      overflow-x: auto;
+      align-items: center;
+    }
+
+    #panel-tabs-module-slot {
+      display: flex;
+    }
+
+    .panel-tab {
+      padding: 5px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #999;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .panel-tab:hover {
+      color: #ccc;
+    }
+
+    .panel-tab.active {
+      color: #ccc;
+      border-bottom-color: #007acc;
+    }
+
+    #panel-content {
+      flex: 1;
+      overflow: auto;
+      padding: 8px 12px;
+      font-family: var(--axiom-font-mono);
+      font-size: 12px;
+      color: #ccc;
+    }
+
+    #panel-content-module-slot {
+      display: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    #panel-content-module-slot.active {
+      display: block;
+    }
+
+    .panel-resize-handle {
+      height: 4px;
+      cursor: ns-resize;
+      background: transparent;
+      flex-shrink: 0;
+    }
+
+    .panel-resize-handle:hover {
+      background: #007acc44;
+    }
+
+    /* ─── Status bar ─── */
+    #statusbar {
+      grid-column: 1/-1;
+      grid-row: 3;
+      background: #007acc;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 12px;
+      font-size: 12px;
+      color: white;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 4px;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+
+    .status-item:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    #statusbar-left-slot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #statusbar-right-slot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #statusbar .spacer {
+      flex: 1;
+    }
+
+    /* ─── Context menu ─── */
+    #context-menu {
+      position: fixed;
+      background: #252526;
+      border: 1px solid #454545;
+      border-radius: 4px;
+      padding: 4px 0;
+      z-index: 1000;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      display: none;
+      min-width: 180px;
+    }
+
+    #context-menu.visible {
+      display: block;
+    }
+
+    .ctx-item {
+      padding: 6px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .ctx-item:hover {
+      background: #094771;
+    }
+
+    .ctx-item kbd {
+      color: #888;
+      font-family: var(--axiom-font-mono);
+      font-size: 11px;
+    }
+
+    .ctx-sep {
+      height: 1px;
+      background: #454545;
+      margin: 4px 0;
+    }
+
+    /* ─── Toasts ─── */
+    #toast-container {
+      position: fixed;
+      bottom: 28px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 2000;
+    }
+
+    .toast {
+      padding: 8px 14px;
+      border-radius: 4px;
+      font-size: 13px;
+      background: #333;
+      border-left: 4px solid #007acc;
+      color: #ccc;
+      max-width: 320px;
+      animation: slide-in 0.2s ease;
+    }
+
+    .toast.error {
+      border-left-color: #f44747;
+    }
+
+    .toast.success {
+      border-left-color: #4ec9b0;
+    }
+
+    .toast.warning {
+      border-left-color: #dcdcaa;
+    }
+
+    .toast.module {
+      border-left-color: #9b59b6;
+    }
+
+    @keyframes slide-in {
+      from {
+        transform: translateX(20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* ─── Command palette ─── */
+    #command-palette {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 900;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 80px;
+    }
+
+    #command-palette.visible {
+      display: flex;
+    }
+
+    #command-palette-box {
+      background: #252526;
+      border: 1px solid #454545;
+      border-radius: 6px;
+      width: 560px;
+      max-height: 420px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    #command-input {
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #454545;
+      color: var(--axiom-fg-primary);
+      font-size: 14px;
+      outline: none;
+    }
+
+    #command-results {
+      overflow-y: auto;
+      max-height: 360px;
+    }
+
+    .cmd-item {
+      padding: 8px 14px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .cmd-item:hover,
+    .cmd-item.selected {
+      background: #094771;
+    }
+
+    .cmd-item .cmd-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cmd-item .cmd-key {
+      font-size: 11px;
+      color: #888;
+      font-family: var(--axiom-font-mono);
+    }
+
+    /* ─── Module view close btn ─── */
+    .module-view-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #aaa;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.15s;
+    }
+
+    .module-view-close:hover {
+      background: #f44747;
+      color: white;
+      border-color: #f44747;
+    }
+
+    .app-view {
+      transition: opacity 0.1s ease;
+    }
+
+    .app-view.view-entering {
+      animation: view-in 0.15s ease;
+    }
+
+    @keyframes view-in {
+      from {
+        opacity: 0;
+        transform: scale(0.99);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* ─── Drag & drop slot overlay ─── */
+    .slot-drag-handle {
+      cursor: grab;
+      opacity: 0;
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #666;
+      transition: opacity 0.1s;
+    }
+
+    [data-module]:hover>.slot-drag-handle {
+      opacity: 1;
+    }
+
+    [data-module] {
+      position: relative;
+    }
+
+    [data-module].slot-dragging {
+      opacity: 0.4;
+    }
+
+    [data-module].slot-drag-target {
+      outline: 1px dashed #007acc;
+      outline-offset: 2px;
+    }
+
+    /* ─── Monaco loading ─── */
+    #monaco-loading {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 13px;
+      gap: 8px;
+    }
+
+    .monaco-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #007acc;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #424242;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
   </style>
 </head>
+
 <body>
 
-<div id="app">
-  <!-- ═══════════════════════════════ TITLEBAR ═══════════════════════════════ -->
-  <div id="titlebar">
-    <div class="title-menus">
-      <span class="menu-item">Fichier</span>
-      <span class="menu-item">Édition</span>
-      <span class="menu-item">Affichage</span>
-      <span class="menu-item">Aller</span>
-      <span class="menu-item">Exécuter</span>
-      <span class="menu-item">Terminal</span>
-    </div>
-    <div id="app-logo">
-      <img id="app-logo-img" src="" alt="">
-      <span id="app-logo-text">Axiom IDE</span>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════ ACTIVITY BAR ═══════════════════════════════ -->
-  <div id="activity-bar">
-    <!-- Icônes natives -->
-    <div class="activity-icon active" data-panel="explorer" title="Explorateur">📁</div>
-    <div class="activity-icon" data-panel="search" title="Rechercher">🔍</div>
-    <div class="activity-icon" data-panel="scm" title="Source">⑂</div>
-    <div class="activity-icon" data-panel="debug" title="Debug">▷</div>
-    <div class="activity-icon" data-panel="extensions" title="Extensions">⧉</div>
-    <!-- SLOT : les modules injectent leurs icônes ici -->
-    <div id="activity-bar-module-slot"></div>
-    <div class="spacer"></div>
-    <!-- Section basse de l'activity bar -->
-    <div id="activity-bar-bottom">
-      <div class="activity-icon" data-panel="ai" title="AI">✦</div>
-      <div class="activity-icon" data-panel="settings" title="Paramètres">⚙</div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════ SIDEBAR ════════════════════════════════ -->
-  <div id="sidebar">
-    <div id="sidebar-header">
-      <span id="sidebar-header-text">Explorateur</span>
-      <div id="sidebar-header-actions"></div>
-    </div>
-    <div id="sidebar-content">
-      <div class="tree-item dir"><span class="tree-indent"></span><span>▼</span><span>AXIOM</span></div>
-      <div class="tree-item" data-file="main.go"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>main.go</span></div>
-      <div class="tree-item" data-file="app.go"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>app.go</span></div>
-      <div class="tree-item" data-file="go.mod"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>go.mod</span></div>
-      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>core/</span></div>
-      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>modules/</span></div>
-      <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>frontend/</span></div>
-    </div>
-    <!-- SLOT : les modules peuvent injecter des sections dans la sidebar -->
-    <div id="sidebar-module-slot"></div>
-  </div>
-
-  <!-- ═════════════════════════ VIEW HOST (zone principale) ═════════════════ -->
-  <div id="view-host">
-
-    <!-- Vue native : éditeur de code -->
-    <div id="view-editor" class="app-view active">
-      <div id="tab-bar">
-        <!-- SLOT : les modules peuvent ajouter des boutons dans la tab bar -->
-        <div id="tab-bar-module-slot"></div>
+  <div id="app">
+    <!-- ═══════════════════ TITLEBAR ═══════════════════ -->
+    <div id="titlebar">
+      <div class="title-menus" id="title-menus">
+        <!-- Les menus sont générés dynamiquement par AxiomMenu -->
       </div>
-      <div id="breadcrumb"><span>Axiom</span></div>
-      <div id="editor-content">
-        <div id="welcome">
-          <h1>Axiom IDE</h1>
-          <div class="shortcuts">
-            <span>Ouvrir un fichier</span>   <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
-            <span>Nouveau fichier</span>      <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
-            <span>Palette commandes</span>    <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
-            <span>Terminal</span>             <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
+      <div id="app-logo">
+        <img id="app-logo-img" src="" alt="">
+        <span id="app-logo-text">Axiom IDE</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ ACTIVITY BAR ═══════════════════ -->
+    <div id="activity-bar">
+      <div class="activity-icon active" data-panel="explorer" title="Explorateur">📁</div>
+      <div class="activity-icon" data-panel="search" title="Rechercher">🔍</div>
+      <div class="activity-icon" data-panel="scm" title="Source">⑂</div>
+      <div class="activity-icon" data-panel="debug" title="Debug">▷</div>
+      <div class="activity-icon" data-panel="extensions" title="Extensions">⧉</div>
+      <div id="activity-bar-module-slot"></div>
+      <div class="spacer"></div>
+      <div id="activity-bar-bottom">
+        <div class="activity-icon" data-panel="ai" title="AI">✦</div>
+        <div class="activity-icon" data-panel="settings" title="Paramètres">⚙</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <span id="sidebar-header-text">Explorateur</span>
+        <div id="sidebar-header-actions"></div>
+      </div>
+      <div id="sidebar-content">
+        <!-- Arbre de fichiers géré par AxiomFileTree -->
+      </div>
+      <div id="sidebar-module-slot"></div>
+    </div>
+
+    <!-- ═══════════════════ VIEW HOST ═══════════════════ -->
+    <div id="view-host">
+      <!-- Vue native : éditeur -->
+      <div id="view-editor" class="app-view active">
+        <div id="tab-bar">
+          <div id="tab-bar-module-slot"></div>
+        </div>
+        <div id="breadcrumb"><span>Axiom</span></div>
+        <div id="editor-content">
+          <div id="welcome">
+            <h1>Axiom IDE</h1>
+            <div class="shortcuts">
+              <span>Ouvrir un fichier</span> <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
+              <span>Nouveau fichier</span> <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
+              <span>Palette commandes</span> <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
+              <span>Terminal</span> <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
+            </div>
           </div>
+          <!-- Monaco Editor -->
+          <div id="monaco-container"></div>
+          <!-- Custom editor host pour les types de fichiers enregistrés par les modules -->
+          <div id="custom-editor-host"></div>
         </div>
-        <div id="code-editor"></div>
-      </div>
-      <div id="bottom-panel">
-        <div class="panel-resize-handle" id="panel-resize"></div>
-        <div id="panel-tabs">
-          <span class="panel-tab active" data-panel="problems">Problèmes</span>
-          <span class="panel-tab" data-panel="output">Sortie</span>
-          <span class="panel-tab" data-panel="terminal">Terminal</span>
-          <!-- SLOT : les modules ajoutent leurs panels ici -->
-          <div id="panel-tabs-module-slot"></div>
+        <div id="bottom-panel">
+          <div class="panel-resize-handle" id="panel-resize"></div>
+          <div id="panel-tabs">
+            <span class="panel-tab active" data-panel="problems">Problèmes</span>
+            <span class="panel-tab" data-panel="output">Sortie</span>
+            <span class="panel-tab" data-panel="terminal">Terminal</span>
+            <div id="panel-tabs-module-slot"></div>
+          </div>
+          <div id="panel-content"></div>
+          <div id="panel-content-module-slot"></div>
         </div>
-        <div id="panel-content"></div>
-        <!-- SLOT : contenu panel injecté par un module -->
-        <div id="panel-content-module-slot"></div>
       </div>
+      <!-- Les vues modules sont injectées ici dynamiquement -->
     </div>
 
-    <!-- Les vues des modules sont injectées dynamiquement ici par AxiomModuleSystem -->
-
+    <!-- ═══════════════════ STATUSBAR ═══════════════════ -->
+    <div id="statusbar">
+      <div class="status-item" id="status-branch">⑂ main</div>
+      <div id="statusbar-left-slot"></div>
+      <div class="status-item" id="status-errors">✕ 0 ⚠ 0</div>
+      <div class="spacer"></div>
+      <div id="statusbar-right-slot"></div>
+      <div class="status-item" id="status-lang">Go</div>
+      <div class="status-item" id="status-cursor">Ln 1, Col 1</div>
+      <div class="status-item" id="status-encoding">UTF-8</div>
+      <div class="status-item" id="status-engine">○ Connecting…</div>
+    </div>
   </div>
 
-  <!-- ═══════════════════════════════ STATUSBAR ══════════════════════════════ -->
-  <div id="statusbar">
-    <div class="status-item" id="status-branch">⑂ main</div>
-    <!-- SLOT gauche -->
-    <div id="statusbar-left-slot"></div>
-    <div class="status-item" id="status-errors">✕ 0  ⚠ 0</div>
-    <div class="spacer"></div>
-    <!-- SLOT droite -->
-    <div id="statusbar-right-slot"></div>
-    <div class="status-item" id="status-lang">Go</div>
-    <div class="status-item" id="status-cursor">Ln 1, Col 1</div>
-    <div class="status-item" id="status-encoding">UTF-8</div>
-    <div class="status-item" id="status-engine">○ Connecting…</div>
+  <div id="command-palette">
+    <div id="command-palette-box">
+      <input id="command-input" type="text" placeholder="> Taper une commande..." autocomplete="off">
+      <div id="command-results"></div>
+    </div>
   </div>
-</div>
+  <div id="context-menu"></div>
+  <div id="toast-container"></div>
 
-<!-- Éléments globaux -->
-<div id="command-palette">
-  <div id="command-palette-box">
-    <input id="command-input" type="text" placeholder="> Taper une commande..." autocomplete="off">
-    <div id="command-results"></div>
-  </div>
-</div>
-<div id="context-menu"></div>
-<div id="toast-container"></div>
+  <script src="./axiom-ui-components.js" defer></script>
+  <script>
+    'use strict';
 
-<script src="./axiom-ui-components.js" defer></script>
-<script>
-'use strict';
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AxiomMenu — Menus de la titlebar extensibles par les modules
+    // ═══════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════
-// AxiomModuleSystem — Système de vues et slots dynamiques pour modules
-// ═══════════════════════════════════════════════════════════════════════════
+    var AxiomMenu = (function () {
 
-var AxiomModuleSystem = (function() {
+      // Structure des menus { label, id, items: [{id, label, action, shortcut, separator, disabled, submenu}] }
+      var menus = [];
 
-  // Registre des modules actifs
-  // { moduleId: { icon, title, viewId, viewType, scriptInitialized, panelTabId } }
-  var registry = {};
+      // Menus natifs par défaut
+      var defaultMenus = [
+        {
+          id: 'file', label: 'Fichier',
+          items: [
+            { id: 'new-file', label: 'Nouveau fichier', action: function () { axiomNewFile(); }, shortcut: 'Ctrl+N' },
+            { id: 'open-file', label: 'Ouvrir…', action: function () { toast('Ouvrir — TODO', 'info'); }, shortcut: 'Ctrl+O' },
+            { separator: true },
+            { id: 'save', label: 'Sauvegarder', action: function () { axiomSave(); }, shortcut: 'Ctrl+S' },
+            { id: 'save-all', label: 'Tout sauvegarder', action: function () { axiomSaveAll(); }, shortcut: 'Ctrl+Shift+S' },
+            { separator: true },
+            { id: 'close-tab', label: 'Fermer l\'onglet', action: function () { if (state.activeTab) closeTab(state.activeTab); }, shortcut: 'Ctrl+W' },
+          ]
+        },
+        {
+          id: 'edit', label: 'Édition',
+          items: [
+            { id: 'undo', label: 'Annuler', action: function () { monacoExec('undo'); }, shortcut: 'Ctrl+Z' },
+            { id: 'redo', label: 'Rétablir', action: function () { monacoExec('redo'); }, shortcut: 'Ctrl+Y' },
+            { separator: true },
+            { id: 'find', label: 'Rechercher', action: function () { monacoExec('actions.find'); }, shortcut: 'Ctrl+F' },
+            { id: 'replace', label: 'Remplacer', action: function () { monacoExec('editor.action.startFindReplaceAction'); }, shortcut: 'Ctrl+H' },
+            { separator: true },
+            { id: 'format', label: 'Formater le document', action: function () { monacoExec('editor.action.formatDocument'); }, shortcut: 'Shift+Alt+F' },
+          ]
+        },
+        {
+          id: 'view', label: 'Affichage',
+          items: [
+            { id: 'toggle-sidebar', label: 'Sidebar', action: function () { toggleSidebar(); }, shortcut: 'Ctrl+B' },
+            { id: 'toggle-panel', label: 'Terminal/Panel', action: function () { togglePanel(); }, shortcut: 'Ctrl+`' },
+            { separator: true },
+            { id: 'theme-dark', label: 'Thème sombre', action: function () { axiomGoSetTheme('dark'); } },
+            { id: 'theme-light', label: 'Thème clair', action: function () { axiomGoSetTheme('light'); } },
+            { separator: true },
+            { id: 'zoom-in', label: 'Zoom +', action: function () { adjustFontSize(1); }, shortcut: 'Ctrl++' },
+            { id: 'zoom-out', label: 'Zoom -', action: function () { adjustFontSize(-1); }, shortcut: 'Ctrl+-' },
+            { id: 'zoom-reset', label: 'Zoom 100%', action: function () { adjustFontSize(0); }, shortcut: 'Ctrl+0' },
+          ]
+        },
+        {
+          id: 'go', label: 'Aller',
+          items: [
+            { id: 'go-definition', label: 'Aller à la définition', action: function () { monacoExec('editor.action.revealDefinition'); }, shortcut: 'F12' },
+            { id: 'go-line', label: 'Aller à la ligne…', action: function () { monacoExec('workbench.action.gotoLine'); }, shortcut: 'Ctrl+G' },
+            { id: 'go-symbol', label: 'Aller au symbole…', action: function () { monacoExec('workbench.action.gotoSymbol'); }, shortcut: 'Ctrl+Shift+O' },
+          ]
+        },
+        {
+          id: 'run', label: 'Exécuter',
+          items: [
+            { id: 'run-build', label: 'Build', action: function () { axiomRunCommand('build'); }, shortcut: 'F5' },
+            { id: 'run-test', label: 'Tests', action: function () { axiomRunCommand('test'); }, shortcut: 'Ctrl+F5' },
+          ]
+        },
+        {
+          id: 'terminal', label: 'Terminal',
+          items: [
+            { id: 'new-terminal', label: 'Nouveau terminal', action: function () { togglePanel(); openTerminalPanel(); }, shortcut: 'Ctrl+`' },
+            { id: 'clear-terminal', label: 'Effacer', action: function () { clearTerminalPanel(); } },
+          ]
+        },
+      ];
 
-  // Vue actuellement active avant un takeover/overlay (pour restauration)
-  var previousActiveView = 'editor';
-  var currentActiveView  = 'editor';
-
-  // ── Utilitaires DOM ────────────────────────────────────────────────────
-
-  function _el(id) { return document.getElementById(id); }
-
-  function _createEl(tag, attrs, html) {
-    var el = document.createElement(tag);
-    if (attrs) Object.keys(attrs).forEach(function(k) {
-      if (k === 'class') el.className = attrs[k];
-      else el.setAttribute(k, attrs[k]);
-    });
-    if (html !== undefined) el.innerHTML = html;
-    return el;
-  }
-
-  // Injecte un <style> scopé dans le <head>
-  function _injectCSS(moduleId, css) {
-    var existing = document.getElementById('style-module-' + moduleId);
-    if (existing) existing.remove();
-    var style = _createEl('style', { id: 'style-module-' + moduleId });
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
-
-  // Injecte un <script> dans le <head> (exécuté une seule fois)
-  function _injectScript(moduleId, js) {
-    var existing = document.getElementById('script-module-' + moduleId);
-    if (existing) return; // déjà injecté
-    var script = _createEl('script', { id: 'script-module-' + moduleId });
-    // Wrapping dans une IIFE avec moduleId accessible
-    script.textContent = '(function(moduleId) {\n' + js + '\n})(' + JSON.stringify(moduleId) + ');';
-    document.head.appendChild(script);
-  }
-
-  // ── Système de vues ────────────────────────────────────────────────────
-
-  /**
-   * switchView(viewId)
-   * Active une vue dans le #view-host.
-   * viewId = 'editor' | moduleId d'un module enregistré
-   */
-  function switchView(viewId) {
-    var targetId = viewId === 'editor' ? 'view-editor' : 'view-' + viewId;
-    var target = _el(targetId);
-    if (!target) {
-      console.warn('[AxiomModuleSystem] View not found:', viewId);
-      return false;
-    }
-
-    // Désactiver toutes les vues non-overlay
-    document.querySelectorAll('#view-host .app-view:not(.overlay)').forEach(function(v) {
-      v.classList.remove('active');
-    });
-
-    // Activer la cible
-    target.classList.add('active');
-    target.classList.add('view-entering');
-    setTimeout(function() { target.classList.remove('view-entering'); }, 200);
-
-    previousActiveView = currentActiveView;
-    currentActiveView = viewId;
-
-    // Sync icônes activity bar
-    document.querySelectorAll('.activity-icon').forEach(function(i) {
-      i.classList.remove('active');
-    });
-    var matchingIcon = document.querySelector('.activity-icon[data-panel="' + viewId + '"]');
-    if (matchingIcon) matchingIcon.classList.add('active');
-
-    // Sync sidebar header si le module a un titre
-    if (registry[viewId]) {
-      _el('sidebar-header-text').textContent = registry[viewId].title || viewId;
-    } else if (viewId === 'editor') {
-      _el('sidebar-header-text').textContent = 'Explorateur';
-    }
-
-    return true;
-  }
-
-  /**
-   * closeView(viewId)
-   * Ferme une vue module et revient à la précédente.
-   */
-  function closeView(viewId) {
-    var target = _el('view-' + viewId);
-    if (!target) return;
-
-    // Si c'est un overlay, on le retire du DOM
-    if (target.classList.contains('overlay')) {
-      target.classList.remove('active');
-      setTimeout(function() { target.remove(); }, 200);
-      // Réactiver la vue précédente
-      switchView(previousActiveView);
-      return;
-    }
-
-    // Sinon on revient à l'éditeur
-    switchView(previousActiveView === viewId ? 'editor' : previousActiveView);
-  }
-
-  // ── Enregistrement de module ────────────────────────────────────────────
-
-  /**
-   * registerModule(config)
-   *
-   * config = {
-   *   moduleId:     string           — identifiant unique (= module ID Go)
-   *   icon:         string           — emoji ou texte court pour l'icône
-   *   iconImageUrl: string?          — URL d'image pour l'icône (optionnel)
-   *   title:        string           — titre affiché dans la sidebar header
-   *   viewType:     'replace'|'takeover'|'overlay'|'none'
-   *                 replace   = vue normale dans #view-host (remplace l'éditeur)
-   *                 takeover  = position:absolute par-dessus tout le content
-   *                 overlay   = modale semi-transparente par-dessus tout
-   *                 none      = pas de vue (juste des slots)
-   *   html:         string?          — contenu HTML de la vue
-   *   css:          string?          — CSS scopé injecté dans <head>
-   *   js:           string?          — JS injecté dans <head> (IIFE, moduleId disponible)
-   *   autoActivate: bool?            — switcher vers cette vue dès l'enregistrement
-   *   showInActivityBar: bool?       — ajouter une icône dans l'activity bar (défaut true)
-   *   position:     'top'|'bottom'?  — position dans l'activity bar (défaut 'top')
-   *   closeable:    bool?            — afficher un bouton fermer sur la vue
-   * }
-   */
-  function registerModule(config) {
-    if (!config || !config.moduleId) {
-      console.error('[AxiomModuleSystem] registerModule: moduleId required');
-      return;
-    }
-    var id = config.moduleId;
-    registry[id] = config;
-
-    // 1. Injecter le CSS
-    if (config.css) _injectCSS(id, config.css);
-
-    // 2. Créer la vue dans #view-host (si viewType != 'none')
-    if (config.viewType && config.viewType !== 'none' && config.html !== undefined) {
-      var existingView = _el('view-' + id);
-      if (existingView) existingView.remove();
-
-      var viewEl = _createEl('div', {
-        id: 'view-' + id,
-        class: 'app-view' + (config.viewType === 'takeover' ? ' takeover' : '') + (config.viewType === 'overlay' ? ' overlay' : '')
-      }, config.html);
-
-      // Bouton fermer si closeable
-      if (config.closeable !== false) {
-        var closeBtn = _createEl('button', { class: 'module-view-close' }, '✕ Fermer');
-        closeBtn.addEventListener('click', function() { closeView(id); });
-        viewEl.insertBefore(closeBtn, viewEl.firstChild);
+      function init() {
+        menus = JSON.parse(JSON.stringify(defaultMenus));
+        // Restaurer les actions (perdues à la sérialisation)
+        defaultMenus.forEach(function (dm, i) {
+          dm.items.forEach(function (item, j) {
+            if (item.action) menus[i].items[j].action = item.action;
+          });
+        });
+        _render();
       }
 
-      _el('view-host').appendChild(viewEl);
-    }
+      function _render() {
+        var container = document.getElementById('title-menus');
+        if (!container) return;
+        container.innerHTML = '';
+        menus.forEach(function (menu) {
+          var el = document.createElement('div');
+          el.className = 'menu-item';
+          el.dataset.menu = menu.id;
+          el.textContent = menu.label;
 
-    // 3. Injecter l'icône dans l'activity bar
-    var showIcon = config.showInActivityBar !== false;
-    if (showIcon) {
-      var existingIcon = document.querySelector('.activity-icon[data-panel="' + id + '"]');
-      if (existingIcon) existingIcon.remove();
+          var dropdown = document.createElement('div');
+          dropdown.className = 'menu-dropdown';
+          dropdown.dataset.menu = menu.id;
+          _renderDropdown(dropdown, menu.items);
+          el.appendChild(dropdown);
 
-      var iconEl = _createEl('div', {
-        class: 'activity-icon module-icon',
-        'data-panel': id,
-        title: config.title || id
-      });
+          el.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = el.classList.contains('open');
+            _closeAll();
+            if (!isOpen) {
+              el.classList.add('open');
+              dropdown.classList.add('open');
+            }
+          });
 
-      if (config.iconImageUrl) {
-        var img = _createEl('img', { src: config.iconImageUrl, style: 'width:24px;height:24px;object-fit:contain;border-radius:4px;' });
-        iconEl.appendChild(img);
-      } else {
-        iconEl.textContent = config.icon || '⬡';
+          container.appendChild(el);
+        });
       }
 
-      // Badge
-      var badge = _createEl('span', { class: 'icon-badge' }, '');
-      iconEl.appendChild(badge);
+      function _renderDropdown(dropdown, items) {
+        dropdown.innerHTML = '';
+        items.forEach(function (item) {
+          if (item.separator) {
+            dropdown.appendChild(Object.assign(document.createElement('div'), { className: 'menu-dropdown-sep' }));
+            return;
+          }
+          var el = document.createElement('div');
+          el.className = 'menu-dropdown-item' + (item.disabled ? ' disabled' : '');
+          el.dataset.itemId = item.id || '';
+          el.innerHTML = '<span>' + (item.label || '') + '</span>' + (item.shortcut ? '<kbd>' + item.shortcut + '</kbd>' : '');
+          if (item.action) {
+            el.addEventListener('click', function (e) {
+              e.stopPropagation();
+              _closeAll();
+              item.action();
+            });
+          }
+          dropdown.appendChild(el);
+        });
+      }
 
-      iconEl.addEventListener('click', function() {
-        if (config.viewType && config.viewType !== 'none') {
-          switchView(id);
+      function _closeAll() {
+        document.querySelectorAll('.menu-item.open').forEach(function (m) { m.classList.remove('open'); });
+        document.querySelectorAll('.menu-dropdown.open').forEach(function (d) { d.classList.remove('open'); });
+      }
+
+      document.addEventListener('click', _closeAll);
+
+      // ── API publique ────────────────────────────────────────────
+
+      /**
+       * Ajouter un item dans un menu existant
+       * config: { id, label, action, shortcut, separator, disabled, position }
+       * position: 'start'|'end'|{after: itemId}
+       */
+      function addItem(menuId, config) {
+        var menu = menus.find(function (m) { return m.id === menuId; });
+        if (!menu) { console.warn('[AxiomMenu] Menu not found:', menuId); return; }
+
+        var pos = config.position;
+        if (!pos || pos === 'end') {
+          menu.items.push(config);
+        } else if (pos === 'start') {
+          menu.items.unshift(config);
+        } else if (pos.after) {
+          var idx = menu.items.findIndex(function (i) { return i.id === pos.after; });
+          menu.items.splice(idx + 1, 0, config);
         }
-        // Déclencher un event custom pour que le module puisse réagir
-        document.dispatchEvent(new CustomEvent('axiom:module-icon-click', { detail: { moduleId: id } }));
-      });
-
-      var slot = config.position === 'bottom'
-        ? _el('activity-bar-bottom')
-        : _el('activity-bar-module-slot');
-      slot.appendChild(iconEl);
-    }
-
-    // 4. Injecter le JS (après que le DOM est prêt)
-    if (config.js) {
-      setTimeout(function() { _injectScript(id, config.js); }, 0);
-    }
-
-    // 5. Auto-activer
-    if (config.autoActivate && config.viewType && config.viewType !== 'none') {
-      setTimeout(function() { switchView(id); }, 50);
-    }
-
-    console.log('[AxiomModuleSystem] Module registered:', id, '| viewType:', config.viewType || 'none');
-    return id;
-  }
-
-  // ── Slots d'injection ──────────────────────────────────────────────────
-
-  /**
-   * injectSlot(slot, html, opts)
-   *
-   * slot: 'sidebar'|'sidebar-header-actions'|'statusbar-left'|'statusbar-right'|
-   *       'tab-bar'|'panel-tab'|'panel-content'|'activity-bar-bottom'|'custom:SELECTOR'
-   * opts: { moduleId, id, replace, css, js }
-   */
-  function injectSlot(slot, html, opts) {
-    opts = opts || {};
-    var mid = opts.moduleId || 'anonymous';
-    var elId = opts.id || 'slot-' + mid + '-' + slot.replace(/[^a-z0-9]/g, '-');
-
-    var slotMap = {
-      'sidebar':                  'sidebar-module-slot',
-      'sidebar-header-actions':   'sidebar-header-actions',
-      'statusbar-left':           'statusbar-left-slot',
-      'statusbar-right':          'statusbar-right-slot',
-      'tab-bar':                  'tab-bar-module-slot',
-      'panel-tab':                'panel-tabs-module-slot',
-      'activity-bar-bottom':      'activity-bar-bottom',
-    };
-
-    var targetEl;
-    if (slot === 'panel-content') {
-      // Cas spécial : remplace le contenu du panel
-      var slotEl = _el('panel-content-module-slot');
-      slotEl.innerHTML = html;
-      slotEl.id = elId;
-      slotEl.classList.add('active');
-      _el('panel-content').style.display = 'none';
-      // Ouvrir le bottom panel
-      _el('bottom-panel').classList.add('visible');
-    } else {
-      var targetId = slotMap[slot];
-      if (!targetId && slot.startsWith('custom:')) {
-        targetEl = document.querySelector(slot.replace('custom:', ''));
-      } else {
-        targetEl = _el(targetId);
+        _render();
       }
 
-      if (!targetEl) {
-        console.warn('[AxiomModuleSystem] Slot not found:', slot);
+      /**
+       * Ajouter un menu entier
+       */
+      function addMenu(config) {
+        // config: { id, label, items, position }
+        var pos = config.position;
+        if (!pos || pos === 'end') {
+          menus.push(config);
+        } else if (pos === 'start') {
+          menus.unshift(config);
+        } else if (typeof pos === 'number') {
+          menus.splice(pos, 0, config);
+        } else if (pos.after) {
+          var idx = menus.findIndex(function (m) { return m.id === pos.after; });
+          menus.splice(idx + 1, 0, config);
+        }
+        _render();
+      }
+
+      /**
+       * Supprimer un item
+       */
+      function removeItem(menuId, itemId) {
+        var menu = menus.find(function (m) { return m.id === menuId; });
+        if (!menu) return;
+        menu.items = menu.items.filter(function (i) { return i.id !== itemId; });
+        _render();
+      }
+
+      /**
+       * Supprimer un menu entier
+       */
+      function removeMenu(menuId) {
+        menus = menus.filter(function (m) { return m.id !== menuId; });
+        _render();
+      }
+
+      /**
+       * Modifier un item (label, action, disabled…)
+       */
+      function updateItem(menuId, itemId, patch) {
+        var menu = menus.find(function (m) { return m.id === menuId; });
+        if (!menu) return;
+        var item = menu.items.find(function (i) { return i.id === itemId; });
+        if (!item) return;
+        Object.assign(item, patch);
+        _render();
+      }
+
+      return { init: init, addItem: addItem, addMenu: addMenu, removeItem: removeItem, removeMenu: removeMenu, updateItem: updateItem, closeAll: _closeAll };
+    })();
+
+    window.AxiomMenu = AxiomMenu;
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AxiomFileTree — Arbre de fichiers dynamique extensible par les modules
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var AxiomFileTree = (function () {
+
+      // Registre des items : { id, path, name, isDir, icon, indent, parentId, expanded, data }
+      var items = [];
+      var activeId = null;
+      var clickHandlers = [];
+      var contextHandlers = [];
+      var _dragSrcId = null;
+
+      var DEFAULT_ICONS = {
+        dir: '📁', dir_open: '📂',
+        go: '🐹', js: '📜', ts: '📘', tsx: '📘', jsx: '📜',
+        json: '📋', md: '📝', html: '🌐', css: '🎨',
+        rs: '🦀', py: '🐍', yaml: '⚙', yml: '⚙',
+        txt: '📄', sh: '⬛', env: '🔑', gitignore: '🚫',
+        default: '📄'
+      };
+
+      function _getIcon(item) {
+        if (item.icon) return item.icon;
+        if (item.isDir) return item.expanded ? DEFAULT_ICONS.dir_open : DEFAULT_ICONS.dir;
+        var ext = (item.name || '').split('.').pop().toLowerCase();
+        return DEFAULT_ICONS[ext] || DEFAULT_ICONS.default;
+      }
+
+      function _render() {
+        var container = document.getElementById('sidebar-content');
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Filtrer les items selon la hiérarchie visible
+        items.forEach(function (item) {
+          // Vérifier si les parents sont tous expanded
+          if (!_isVisible(item)) return;
+
+          var el = document.createElement('div');
+          el.className = 'tree-item' + (item.isDir ? ' dir' : '') + (item.id === activeId ? ' active' : '');
+          el.dataset.id = item.id;
+          el.draggable = true;
+
+          // Indentation
+          var indent = item.indent || 0;
+          for (var i = 0; i < indent; i++) {
+            var sp = document.createElement('span');
+            sp.className = 'tree-indent';
+            el.appendChild(sp);
+          }
+
+          // Chevron (dossiers)
+          var chevron = document.createElement('span');
+          chevron.className = 'tree-chevron' + (item.isDir && item.expanded ? ' expanded' : '');
+          chevron.textContent = item.isDir ? '▶' : '';
+          el.appendChild(chevron);
+
+          // Icône
+          var icon = document.createElement('span');
+          icon.className = 'tree-icon';
+          icon.textContent = _getIcon(item);
+          el.appendChild(icon);
+
+          // Label
+          var label = document.createElement('span');
+          label.className = 'tree-label';
+          label.textContent = item.name || item.path || '';
+          el.appendChild(label);
+
+          // Actions custom
+          if (item.actions && item.actions.length) {
+            var actionsEl = document.createElement('span');
+            actionsEl.className = 'tree-actions';
+            item.actions.forEach(function (act) {
+              var btn = document.createElement('button');
+              btn.className = 'tree-action-btn';
+              btn.title = act.title || '';
+              btn.textContent = act.icon || '…';
+              btn.addEventListener('click', function (e) { e.stopPropagation(); act.action(item); });
+              actionsEl.appendChild(btn);
+            });
+            el.appendChild(actionsEl);
+          }
+
+          // Clic
+          el.addEventListener('click', function () {
+            if (item.isDir) {
+              item.expanded = !item.expanded;
+              _render();
+            } else {
+              setActive(item.id);
+              clickHandlers.forEach(function (h) { h(item); });
+            }
+          });
+
+          // Clic droit
+          el.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            contextHandlers.forEach(function (h) { h(item, e); });
+            if (!contextHandlers.length) _defaultContext(item, e);
+          });
+
+          // Drag & drop
+          el.addEventListener('dragstart', function (e) {
+            _dragSrcId = item.id;
+            e.dataTransfer.effectAllowed = 'move';
+            el.classList.add('dragging');
+          });
+          el.addEventListener('dragend', function () {
+            el.classList.remove('dragging');
+            document.querySelectorAll('.tree-item.drag-over').forEach(function (x) { x.classList.remove('drag-over'); });
+          });
+          el.addEventListener('dragover', function (e) {
+            if (_dragSrcId !== item.id) { e.preventDefault(); el.classList.add('drag-over'); }
+          });
+          el.addEventListener('dragleave', function () { el.classList.remove('drag-over'); });
+          el.addEventListener('drop', function (e) {
+            e.preventDefault();
+            el.classList.remove('drag-over');
+            if (_dragSrcId && _dragSrcId !== item.id) {
+              document.dispatchEvent(new CustomEvent('axiom:filetree-drop', { detail: { srcId: _dragSrcId, targetId: item.id } }));
+            }
+          });
+
+          container.appendChild(el);
+        });
+      }
+
+      function _isVisible(item) {
+        if (!item.parentId) return true;
+        var parent = items.find(function (i) { return i.id === item.parentId; });
+        if (!parent) return true;
+        return parent.expanded && _isVisible(parent);
+      }
+
+      function _defaultContext(item, e) {
+        var menu = document.getElementById('context-menu');
+        menu.innerHTML = '';
+        var actions = [
+          { label: 'Ouvrir', action: function () { clickHandlers.forEach(function (h) { h(item); }); } },
+          { label: 'Renommer…', action: function () { _renameItem(item); } },
+          { separator: true },
+          { label: 'Copier le chemin', action: function () { navigator.clipboard && navigator.clipboard.writeText(item.path || item.name); toast('Chemin copié', 'success', 1500); } },
+          { separator: true },
+          { label: 'Supprimer', action: function () { document.dispatchEvent(new CustomEvent('axiom:filetree-delete', { detail: item })); } },
+        ];
+        actions.forEach(function (a) {
+          if (a.separator) { menu.appendChild(Object.assign(document.createElement('div'), { className: 'ctx-sep' })); return; }
+          var el = Object.assign(document.createElement('div'), { className: 'ctx-item', textContent: a.label });
+          el.addEventListener('click', function () { menu.classList.remove('visible'); a.action(); });
+          menu.appendChild(el);
+        });
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        menu.classList.add('visible');
+      }
+
+      function _renameItem(item) {
+        var newName = prompt('Renommer :', item.name);
+        if (newName && newName !== item.name) {
+          item.name = newName;
+          _render();
+          document.dispatchEvent(new CustomEvent('axiom:filetree-rename', { detail: { item: item, newName: newName } }));
+        }
+      }
+
+      // ── API publique ──────────────────────────────────────────────
+
+      /**
+       * Remplacer tout l'arbre
+       * items: [{ id, path, name, isDir, icon?, indent?, parentId?, expanded?, actions? }]
+       */
+      function setItems(newItems) {
+        items = newItems.map(function (i) { return Object.assign({ expanded: false }, i); });
+        _render();
+      }
+
+      /**
+       * Ajouter un item
+       */
+      function addItem(item) {
+        items.push(Object.assign({ expanded: false }, item));
+        _render();
+      }
+
+      /**
+       * Supprimer un item (et ses enfants)
+       */
+      function removeItem(id) {
+        var toRemove = new Set();
+        function collect(tid) {
+          toRemove.add(tid);
+          items.forEach(function (i) { if (i.parentId === tid) collect(i.id); });
+        }
+        collect(id);
+        items = items.filter(function (i) { return !toRemove.has(i.id); });
+        _render();
+      }
+
+      /**
+       * Mettre à jour les propriétés d'un item
+       */
+      function updateItem(id, patch) {
+        var item = items.find(function (i) { return i.id === id; });
+        if (item) { Object.assign(item, patch); _render(); }
+      }
+
+      /**
+       * Marquer un item comme actif
+       */
+      function setActive(id) {
+        activeId = id;
+        _render();
+        document.querySelectorAll('.tree-item').forEach(function (el) {
+          el.classList.toggle('active', el.dataset.id === id);
+        });
+      }
+
+      /**
+       * Vider l'arbre
+       */
+      function clear() { items = []; _render(); }
+
+      /**
+       * Écouter les clics sur un fichier
+       */
+      function onItemClick(handler) { clickHandlers.push(handler); }
+
+      /**
+       * Écouter les clics droits
+       */
+      function onContextMenu(handler) { contextHandlers.push(handler); }
+
+      /**
+       * Recharger depuis le backend Go
+       */
+      function refresh(path) {
+        document.dispatchEvent(new CustomEvent('axiom:filetree-refresh', { detail: { path: path || '.' } }));
+      }
+
+      /**
+       * Expand/collapse un dossier
+       */
+      function expand(id) { updateItem(id, { expanded: true }); }
+      function collapse(id) { updateItem(id, { expanded: false }); }
+
+      /**
+       * Retourner tous les items
+       */
+      function getItems() { return items.slice(); }
+      function getActive() { return items.find(function (i) { return i.id === activeId; }) || null; }
+
+      return { setItems: setItems, addItem: addItem, removeItem: removeItem, updateItem: updateItem, setActive: setActive, clear: clear, onItemClick: onItemClick, onContextMenu: onContextMenu, refresh: refresh, expand: expand, collapse: collapse, getItems: getItems, getActive: getActive };
+    })();
+
+    window.AxiomFileTree = AxiomFileTree;
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AxiomEditor — Éditeur extensible avec Monaco + types de fichiers custom
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var AxiomEditor = (function () {
+
+      var monacoEditor = null;
+      var monacoLoaded = false;
+      var monacoLoading = false;
+      var _pendingOpen = null;
+
+      // Registre des types custom : { extensions: ['.md', '.csv'], canHandle, create, destroy }
+      var customEditors = [];
+
+      // Éditeur custom actif
+      var activeCustomEditor = null;
+      var activeCustomDestroy = null;
+
+      // ── Chargement de Monaco ─────────────────────────────────────
+
+      function loadMonaco(callback) {
+        if (monacoLoaded) { callback && callback(); return; }
+        if (monacoLoading) {
+          var t = setInterval(function () { if (monacoLoaded) { clearInterval(t); callback && callback(); } }, 100);
+          return;
+        }
+        monacoLoading = true;
+
+        var script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js';
+        script.onload = function () {
+          window.require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
+          window.require(['vs/editor/editor.main'], function () {
+            monacoLoaded = true;
+            _createEditor();
+            callback && callback();
+            // Ouvrir le fichier en attente si besoin
+            if (_pendingOpen) { var p = _pendingOpen; _pendingOpen = null; openFile(p.path, p.content, p.language); }
+          });
+        };
+        script.onerror = function () {
+          monacoLoading = false;
+          console.warn('[AxiomEditor] Monaco CDN unavailable — fallback mode');
+          monacoLoaded = false;
+          callback && callback(new Error('Monaco unavailable'));
+        };
+        document.head.appendChild(script);
+      }
+
+      function _createEditor() {
+        var container = document.getElementById('monaco-container');
+        if (!container || monacoEditor) return;
+
+        var isDark = !document.documentElement.classList.contains('theme-light');
+        window.monaco.editor.defineTheme('axiom-dark', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [],
+          colors: {
+            'editor.background': '#1e1e1e',
+            'editor.lineHighlightBackground': '#2a2d2e',
+            'editorLineNumber.foreground': '#858585',
+            'editorCursor.foreground': '#aeafad',
+          }
+        });
+        window.monaco.editor.defineTheme('axiom-light', {
+          base: 'vs',
+          inherit: true,
+          rules: [],
+          colors: { 'editor.background': '#ffffff' }
+        });
+
+        monacoEditor = window.monaco.editor.create(container, {
+          value: '',
+          language: 'plaintext',
+          theme: isDark ? 'axiom-dark' : 'axiom-light',
+          fontSize: 13,
+          fontFamily: "'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
+          fontLigatures: true,
+          lineNumbers: 'on',
+          wordWrap: 'off',
+          minimap: { enabled: true },
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          tabSize: 4,
+          detectIndentation: true,
+          renderWhitespace: 'selection',
+          bracketPairColorization: { enabled: true },
+          guides: { bracketPairs: true },
+        });
+
+        // Sync curseur → statusbar
+        monacoEditor.onDidChangeCursorPosition(function (e) {
+          var el = document.getElementById('status-cursor');
+          if (el) el.textContent = 'Ln ' + e.position.lineNumber + ', Col ' + e.position.column;
+        });
+
+        // Sync dirty
+        monacoEditor.onDidChangeModelContent(function () {
+          if (state.activeTab) {
+            var tab = state.openTabs.find(function (t) { return t.id === state.activeTab; });
+            if (tab && !tab.dirty) { tab.dirty = true; renderTabs(); }
+          }
+        });
+
+        // Raccourcis additionnels
+        monacoEditor.addCommand(window.monaco.KeyMod.CtrlCmd | window.monaco.KeyCode.KeyS, function () { axiomSave(); });
+      }
+
+      // ── Ouvrir un fichier dans Monaco ─────────────────────────────
+
+      function openFile(path, content, language) {
+        if (!monacoLoaded) {
+          _pendingOpen = { path: path, content: content, language: language };
+          loadMonaco();
+          return;
+        }
+        // Vérifier si un éditeur custom peut gérer ce fichier
+        var ext = '.' + (path || '').split('.').pop().toLowerCase();
+        var customEd = customEditors.find(function (ce) {
+          return ce.canHandle ? ce.canHandle(path, content) : (ce.extensions || []).indexOf(ext) !== -1;
+        });
+
+        var welcome = document.getElementById('welcome');
+        var monacoContainer = document.getElementById('monaco-container');
+        var customHost = document.getElementById('custom-editor-host');
+
+        welcome.style.display = 'none';
+
+        if (customEd) {
+          // Détruire l'éditeur custom précédent
+          if (activeCustomDestroy) { try { activeCustomDestroy(); } catch (e) { } }
+          monacoContainer.classList.remove('visible');
+          customHost.classList.add('visible');
+          customHost.innerHTML = '';
+          var instance = customEd.create(customHost, { path: path, content: content });
+          activeCustomEditor = instance;
+          activeCustomDestroy = customEd.destroy ? function () { customEd.destroy(customHost, instance); } : null;
+        } else {
+          // Détruire l'éditeur custom précédent
+          if (activeCustomDestroy) { try { activeCustomDestroy(); } catch (e) { } activeCustomDestroy = null; }
+          customHost.classList.remove('visible');
+          monacoContainer.classList.add('visible');
+          var lang = language || _detectLang(path);
+          var model = window.monaco.editor.createModel(content || '', lang);
+          monacoEditor.setModel(model);
+          monacoEditor.layout();
+        }
+      }
+
+      function closeFile() {
+        if (activeCustomDestroy) { try { activeCustomDestroy(); } catch (e) { } activeCustomDestroy = null; }
+        document.getElementById('monaco-container').classList.remove('visible');
+        document.getElementById('custom-editor-host').classList.remove('visible');
+        document.getElementById('welcome').style.display = 'flex';
+        if (monacoEditor) monacoEditor.setModel(null);
+      }
+
+      function _detectLang(path) {
+        var ext = (path || '').split('.').pop().toLowerCase();
+        var map = { go: 'go', js: 'javascript', ts: 'typescript', tsx: 'typescript', jsx: 'javascript', json: 'json', md: 'markdown', html: 'html', css: 'css', rs: 'rust', py: 'python', yaml: 'yaml', yml: 'yaml', sh: 'shell', sql: 'sql', xml: 'xml', cpp: 'cpp', c: 'c', cs: 'csharp', java: 'java', php: 'php', rb: 'ruby', kt: 'kotlin', swift: 'swift' };
+        return map[ext] || 'plaintext';
+      }
+
+      // ── API publique ──────────────────────────────────────────────
+
+      /**
+       * Enregistrer un type d'éditeur custom pour certaines extensions
+       *
+       * config: {
+       *   id: string,
+       *   extensions: ['.csv', '.md'],  // OU
+       *   canHandle: (path, content) => bool,
+       *   create: (container, {path, content}) => instance,
+       *   destroy: (container, instance) => void,
+       *   priority: number  // plus haut = prioritaire
+       * }
+       */
+      function registerContentType(config) {
+        customEditors.push(config);
+        customEditors.sort(function (a, b) { return (b.priority || 0) - (a.priority || 0); });
+        console.log('[AxiomEditor] Content type registered:', config.id || config.extensions);
+      }
+
+      /**
+       * Supprimer un éditeur custom
+       */
+      function unregisterContentType(id) {
+        customEditors = customEditors.filter(function (ce) { return ce.id !== id; });
+      }
+
+      /**
+       * Obtenir l'instance Monaco (null si pas chargée)
+       */
+      function getMonaco() { return monacoEditor; }
+
+      /**
+       * Obtenir le contenu actuel de l'éditeur
+       */
+      function getContent() {
+        if (monacoEditor) return monacoEditor.getValue();
+        return null;
+      }
+
+      /**
+       * Setter le contenu
+       */
+      function setContent(content) {
+        if (monacoEditor) monacoEditor.setValue(content);
+      }
+
+      /**
+       * Exécuter une action Monaco
+       */
+      function execAction(actionId) {
+        if (monacoEditor) {
+          var action = monacoEditor.getAction(actionId);
+          if (action) action.run();
+        }
+      }
+
+      /**
+       * Changer le thème Monaco
+       */
+      function setTheme(themeName) {
+        if (!window.monaco) return;
+        window.monaco.editor.setTheme(themeName === 'light' ? 'axiom-light' : 'axiom-dark');
+      }
+
+      /**
+       * Ajuster la taille de police
+       */
+      function setFontSize(size) {
+        if (monacoEditor) monacoEditor.updateOptions({ fontSize: size });
+      }
+
+      /**
+       * Ajouter un provider LSP-like (hover, completion, etc.)
+       * Délègue directement à monaco.languages.*
+       */
+      function registerLanguageFeature(language, featureType, provider) {
+        if (!window.monaco) { console.warn('[AxiomEditor] Monaco not loaded yet'); return null; }
+        if (window.monaco.languages[featureType]) {
+          return window.monaco.languages[featureType](language, provider);
+        }
+        return null;
+      }
+
+      /**
+       * Décorer des lignes
+       */
+      function decorate(decorations) {
+        if (monacoEditor) return monacoEditor.deltaDecorations([], decorations);
+        return [];
+      }
+
+      return {
+        load: loadMonaco,
+        openFile: openFile,
+        closeFile: closeFile,
+        registerContentType: registerContentType,
+        unregisterContentType: unregisterContentType,
+        getMonaco: getMonaco,
+        getContent: getContent,
+        setContent: setContent,
+        execAction: execAction,
+        setTheme: setTheme,
+        setFontSize: setFontSize,
+        registerLanguageFeature: registerLanguageFeature,
+        decorate: decorate,
+      };
+    })();
+
+    window.AxiomEditor = AxiomEditor;
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AxiomModuleSystem — Système de vues et slots dynamiques (inchangé + amélioré)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var AxiomModuleSystem = (function () {
+
+      var registry = {};
+      var previousActiveView = 'editor';
+      var currentActiveView = 'editor';
+
+      function _el(id) { return document.getElementById(id); }
+      function _createEl(tag, attrs, html) {
+        var el = document.createElement(tag);
+        if (attrs) Object.keys(attrs).forEach(function (k) {
+          if (k === 'class') el.className = attrs[k];
+          else el.setAttribute(k, attrs[k]);
+        });
+        if (html !== undefined) el.innerHTML = html;
+        return el;
+      }
+      function _injectCSS(id, css) {
+        var ex = document.getElementById('style-module-' + id);
+        if (ex) ex.remove();
+        var s = _createEl('style', { id: 'style-module-' + id });
+        s.textContent = css;
+        document.head.appendChild(s);
+      }
+      function _injectScript(id, js) {
+        var ex = document.getElementById('script-module-' + id);
+        if (ex) return;
+        var s = _createEl('script', { id: 'script-module-' + id });
+        s.textContent = '(function(moduleId) {\n' + js + '\n})(' + JSON.stringify(id) + ');';
+        document.head.appendChild(s);
+      }
+
+      function switchView(viewId) {
+        var targetId = viewId === 'editor' ? 'view-editor' : 'view-' + viewId;
+        var target = _el(targetId);
+        if (!target) { console.warn('[AxiomModuleSystem] View not found:', viewId); return false; }
+        document.querySelectorAll('#view-host .app-view:not(.overlay)').forEach(function (v) { v.classList.remove('active'); });
+        target.classList.add('active', 'view-entering');
+        setTimeout(function () { target.classList.remove('view-entering'); }, 200);
+        previousActiveView = currentActiveView;
+        currentActiveView = viewId;
+        document.querySelectorAll('.activity-icon').forEach(function (i) { i.classList.remove('active'); });
+        var icon = document.querySelector('.activity-icon[data-panel="' + viewId + '"]');
+        if (icon) icon.classList.add('active');
+        if (registry[viewId]) {
+          _el('sidebar-header-text').textContent = registry[viewId].title || viewId;
+        } else if (viewId === 'editor') {
+          _el('sidebar-header-text').textContent = 'Explorateur';
+        }
+        return true;
+      }
+
+      function closeView(viewId) {
+        var target = _el('view-' + viewId);
+        if (!target) return;
+        if (target.classList.contains('overlay')) {
+          target.classList.remove('active');
+          setTimeout(function () { target.remove(); }, 200);
+          switchView(previousActiveView);
+          return;
+        }
+        switchView(previousActiveView === viewId ? 'editor' : previousActiveView);
+      }
+
+      function registerModule(config) {
+        if (!config || !config.moduleId) return;
+        var id = config.moduleId;
+        registry[id] = config;
+        if (config.css) _injectCSS(id, config.css);
+
+        if (config.viewType && config.viewType !== 'none' && config.html !== undefined) {
+          var ex = _el('view-' + id);
+          if (ex) ex.remove();
+          var cls = 'app-view' + (config.viewType === 'takeover' ? ' takeover' : '') + (config.viewType === 'overlay' ? ' overlay' : '');
+          var viewEl = _createEl('div', { id: 'view-' + id, class: cls }, config.html);
+          if (config.closeable !== false) {
+            var btn = _createEl('button', { class: 'module-view-close' }, '✕ Fermer');
+            btn.addEventListener('click', function () { closeView(id); });
+            viewEl.insertBefore(btn, viewEl.firstChild);
+          }
+          _el('view-host').appendChild(viewEl);
+        }
+
+        if (config.showInActivityBar !== false) {
+          var exIcon = document.querySelector('.activity-icon[data-panel="' + id + '"]');
+          if (exIcon) exIcon.remove();
+          var iconEl = _createEl('div', { class: 'activity-icon module-icon', 'data-panel': id, title: config.title || id });
+          if (config.iconImageUrl) {
+            iconEl.appendChild(_createEl('img', { src: config.iconImageUrl, style: 'width:24px;height:24px;object-fit:contain;border-radius:4px;' }));
+          } else { iconEl.textContent = config.icon || '⬡'; }
+          var badge = _createEl('span', { class: 'icon-badge' }, '');
+          iconEl.appendChild(badge);
+          iconEl.addEventListener('click', function () {
+            if (config.viewType && config.viewType !== 'none') switchView(id);
+            document.dispatchEvent(new CustomEvent('axiom:module-icon-click', { detail: { moduleId: id } }));
+          });
+          var slot = config.position === 'bottom' ? _el('activity-bar-bottom') : _el('activity-bar-module-slot');
+          slot.appendChild(iconEl);
+        }
+
+        if (config.js) setTimeout(function () { _injectScript(id, config.js); }, 0);
+        if (config.autoActivate && config.viewType && config.viewType !== 'none') setTimeout(function () { switchView(id); }, 50);
+        return id;
+      }
+
+      function injectSlot(slot, html, opts) {
+        opts = opts || {};
+        var mid = opts.moduleId || 'anonymous';
+        var elId = opts.id || 'slot-' + mid + '-' + slot.replace(/[^a-z0-9]/g, '-');
+
+        var slotMap = {
+          'sidebar': 'sidebar-module-slot',
+          'sidebar-header-actions': 'sidebar-header-actions',
+          'statusbar-left': 'statusbar-left-slot',
+          'statusbar-right': 'statusbar-right-slot',
+          'tab-bar': 'tab-bar-module-slot',
+          'panel-tab': 'panel-tabs-module-slot',
+          'activity-bar-bottom': 'activity-bar-bottom',
+        };
+
+        if (slot === 'panel-content') {
+          var slotEl = _el('panel-content-module-slot');
+          slotEl.innerHTML = html;
+          slotEl.id = elId;
+          slotEl.classList.add('active');
+          _el('panel-content').style.display = 'none';
+          _el('bottom-panel').classList.add('visible');
+        } else {
+          var targetId = slotMap[slot];
+          var targetEl = targetId ? _el(targetId) : (slot.startsWith('custom:') ? document.querySelector(slot.replace('custom:', '')) : null);
+          if (!targetEl) { console.warn('[AxiomModuleSystem] Slot not found:', slot); return; }
+          if (opts.replace) { var old = _el(elId); if (old) old.remove(); }
+          var wrapper = _createEl('div', { id: elId, 'data-module': mid }, html);
+          // Drag handle pour les slots
+          var handle = _createEl('span', { class: 'slot-drag-handle', draggable: 'true' }, '⠿');
+          _initSlotDrag(wrapper, handle);
+          wrapper.insertBefore(handle, wrapper.firstChild);
+          targetEl.appendChild(wrapper);
+        }
+
+        if (opts.css) _injectCSS(mid + '-slot-' + slot, opts.css);
+        if (opts.js) setTimeout(function () { _injectScript(mid + '-slot-' + slot, opts.js); }, 0);
+        return elId;
+      }
+
+      // Drag & drop pour les éléments de slots
+      function _initSlotDrag(wrapper, handle) {
+        var dragSrc = null;
+        handle.addEventListener('dragstart', function (e) {
+          dragSrc = wrapper;
+          wrapper.classList.add('slot-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        handle.addEventListener('dragend', function () {
+          wrapper.classList.remove('slot-dragging');
+          document.querySelectorAll('.slot-drag-target').forEach(function (el) { el.classList.remove('slot-drag-target'); });
+        });
+        wrapper.addEventListener('dragover', function (e) {
+          if (dragSrc && dragSrc !== wrapper) { e.preventDefault(); wrapper.classList.add('slot-drag-target'); }
+        });
+        wrapper.addEventListener('dragleave', function () { wrapper.classList.remove('slot-drag-target'); });
+        wrapper.addEventListener('drop', function (e) {
+          e.stopPropagation();
+          wrapper.classList.remove('slot-drag-target');
+          if (dragSrc && dragSrc !== wrapper && dragSrc.parentNode === wrapper.parentNode) {
+            var parent = wrapper.parentNode;
+            var srcIdx = Array.from(parent.children).indexOf(dragSrc);
+            var tgtIdx = Array.from(parent.children).indexOf(wrapper);
+            if (srcIdx < tgtIdx) parent.insertBefore(dragSrc, wrapper.nextSibling);
+            else parent.insertBefore(dragSrc, wrapper);
+            dragSrc = null;
+          }
+        });
+      }
+
+      function removeSlot(elId) { var el = _el(elId); if (el) el.remove(); }
+
+      function setAppLogo(opts) {
+        opts = opts || {};
+        if (opts.imageUrl) { var img = _el('app-logo-img'); img.src = opts.imageUrl; img.classList.add('visible'); }
+        if (opts.text !== undefined) _el('app-logo-text').textContent = opts.text;
+        if (opts.titlebarColor) _el('titlebar').style.background = opts.titlebarColor;
+        if (opts.statusbarColor) _el('statusbar').style.background = opts.statusbarColor;
+      }
+
+      function setIconBadge(moduleId, text) {
+        var icon = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]');
+        if (!icon) return;
+        var badge = icon.querySelector('.icon-badge');
+        if (!badge) return;
+        if (!text || text === 0) { badge.classList.remove('visible'); badge.textContent = ''; }
+        else { badge.textContent = String(text); badge.classList.add('visible'); }
+      }
+
+      function unregisterModule(moduleId) {
+        var v = _el('view-' + moduleId); if (v) v.remove();
+        var i = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]'); if (i) i.remove();
+        var s = _el('style-module-' + moduleId); if (s) s.remove();
+        if (currentActiveView === moduleId) switchView('editor');
+        delete registry[moduleId];
+      }
+
+      return {
+        registerModule: registerModule, unregisterModule: unregisterModule,
+        switchView: switchView, closeView: closeView,
+        injectSlot: injectSlot, removeSlot: removeSlot,
+        setAppLogo: setAppLogo, setIconBadge: setIconBadge,
+        getRegistry: function () { return registry; },
+        getCurrentView: function () { return currentActiveView; },
+        getPreviousView: function () { return previousActiveView; },
+      };
+    })();
+
+    window.AxiomModules = AxiomModuleSystem;
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE & HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var state = { openTabs: [], activeTab: null, bottomVisible: false, fontSize: 13 };
+
+    function toast(msg, type, ms) {
+      var el = document.createElement('div');
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = msg;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(function () { el.remove(); }, ms || 3000);
+    }
+
+    function ext(p) { var m = (p || '').match(/\.([^.]+)$/); return m ? m[1].toLowerCase() : ''; }
+    function langIcon(p) { return ({ go: '🐹', js: '📜', ts: '📘', json: '📋', md: '📝', html: '🌐', css: '🎨', rs: '🦀', py: '🐍' })[ext(p)] || '📄'; }
+    function langName(p) { return ({ go: 'Go', js: 'JavaScript', ts: 'TypeScript', jsx: 'JavaScript', tsx: 'TypeScript', json: 'JSON', md: 'Markdown', html: 'HTML', css: 'CSS', rs: 'Rust', py: 'Python', yaml: 'YAML', yml: 'YAML', sql: 'SQL', sh: 'Shell' })[ext(p)] || 'Texte'; }
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function monacoExec(actionId) { AxiomEditor.execAction(actionId); }
+
+    function adjustFontSize(delta) {
+      if (delta === 0) { state.fontSize = 13; }
+      else { state.fontSize = Math.max(10, Math.min(24, state.fontSize + delta)); }
+      AxiomEditor.setFontSize(state.fontSize);
+    }
+
+    function axiomNewFile() {
+      var name = prompt('Nom du fichier :', 'nouveau.go');
+      if (!name) return;
+      openTab(name, '// ' + name + '\n');
+    }
+
+    function axiomSaveAll() {
+      state.openTabs.forEach(function (tab) {
+        if (tab.dirty) {
+          var app = goApp();
+          if (app) app.WriteFile(tab.path, tab.content || '').then(function () { tab.dirty = false; renderTabs(); });
+        }
+      });
+      toast('Tout sauvegardé ✓', 'success', 1500);
+    }
+
+    function axiomRunCommand(cmd) {
+      toast('Run: ' + cmd + ' — branchez votre runner ici', 'info');
+      var app = goApp();
+      if (app) app.EmitEvent('system.run', JSON.stringify({ command: cmd })).catch(function () { });
+    }
+
+    function openTerminalPanel() {
+      document.querySelector('.panel-tab[data-panel="terminal"]').click();
+      document.getElementById('panel-content').innerHTML = '<div style="color:#4ec9b0;font-family:monospace;padding:4px 0">$ axiom terminal — branchez xterm.js ici</div>';
+    }
+
+    function clearTerminalPanel() {
+      document.getElementById('panel-content').innerHTML = '';
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function openTab(path, content) {
+      var ex = state.openTabs.find(function (t) { return t.path === path; });
+      if (ex) { activateTab(ex.id); return; }
+      var id = 'tab-' + Date.now();
+      var parts = path.split(/[/\\]/);
+      state.openTabs.push({ id: id, path: path, title: parts[parts.length - 1], dirty: false, language: langName(path), content: content || '' });
+      if (AxiomModuleSystem.getCurrentView() !== 'editor') AxiomModuleSystem.switchView('editor');
+      activateTab(id);
+    }
+
+    function closeTab(id) {
+      var idx = state.openTabs.findIndex(function (t) { return t.id === id; });
+      if (idx === -1) return;
+      state.openTabs.splice(idx, 1);
+      if (state.activeTab === id) { var n = state.openTabs[Math.max(0, idx - 1)]; state.activeTab = n ? n.id : null; }
+      renderTabs(); renderEditor();
+    }
+
+    function activateTab(id) { state.activeTab = id; renderTabs(); renderEditor(); }
+
+    function renderTabs() {
+      var bar = document.getElementById('tab-bar');
+      var slot = document.getElementById('tab-bar-module-slot');
+      bar.innerHTML = '';
+      bar.appendChild(slot);
+
+      state.openTabs.forEach(function (tab) {
+        var el = document.createElement('div');
+        el.className = 'editor-tab' + (tab.id === state.activeTab ? ' active' : '') + (tab.dirty ? ' dirty' : '');
+        el.draggable = true;
+        el.dataset.tabId = tab.id;
+        el.innerHTML = '<span>' + langIcon(tab.path) + ' ' + tab.title + '</span><span class="tab-close" data-close="' + tab.id + '">✕</span>';
+        el.addEventListener('click', function (e) {
+          if (e.target.dataset.close) { closeTab(e.target.dataset.close); return; }
+          activateTab(tab.id);
+        });
+        // Drag tabs
+        el.addEventListener('dragstart', function (e) { el.classList.add('tab-dragging'); e.dataTransfer.setData('text/plain', tab.id); });
+        el.addEventListener('dragend', function () { el.classList.remove('tab-dragging'); document.querySelectorAll('.tab-drag-over').forEach(function (x) { x.classList.remove('tab-drag-over'); }); });
+        el.addEventListener('dragover', function (e) { e.preventDefault(); el.classList.add('tab-drag-over'); });
+        el.addEventListener('dragleave', function () { el.classList.remove('tab-drag-over'); });
+        el.addEventListener('drop', function (e) {
+          e.preventDefault();
+          el.classList.remove('tab-drag-over');
+          var srcId = e.dataTransfer.getData('text/plain');
+          if (srcId && srcId !== tab.id) {
+            var srcIdx = state.openTabs.findIndex(function (t) { return t.id === srcId; });
+            var tgtIdx = state.openTabs.findIndex(function (t) { return t.id === tab.id; });
+            if (srcIdx !== -1 && tgtIdx !== -1) {
+              var moved = state.openTabs.splice(srcIdx, 1)[0];
+              state.openTabs.splice(tgtIdx, 0, moved);
+              renderTabs();
+            }
+          }
+        });
+        bar.insertBefore(el, slot);
+      });
+    }
+
+    function renderEditor() {
+      var w = document.getElementById('welcome');
+      var crumb = document.getElementById('breadcrumb');
+      var langEl = document.getElementById('status-lang');
+      var tab = state.openTabs.find(function (t) { return t.id === state.activeTab; });
+
+      if (!tab) {
+        AxiomEditor.closeFile();
+        crumb.innerHTML = '<span>Axiom</span>';
+        if (langEl) langEl.textContent = '';
         return;
       }
 
-      // Retirer l'élément existant si opts.replace
-      if (opts.replace) {
-        var old = _el(elId);
-        if (old) old.remove();
+      var parts = tab.path.split(/[/\\]/);
+      crumb.innerHTML = parts.map(function (p, i) { return '<span>' + escHtml(p) + '</span>' + (i < parts.length - 1 ? '<span style="color:#555"> › </span>' : ''); }).join('');
+      if (langEl) langEl.textContent = tab.language;
+
+      // Ouvrir dans Monaco (ou éditeur custom si enregistré)
+      AxiomEditor.openFile(tab.path, tab.content || '', null);
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILE TREE — chargement depuis Go
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function _buildTreeItems(entries, parentId, indent) {
+      var items = [];
+      (entries || []).forEach(function (entry, i) {
+        var id = (parentId ? parentId + '/' : '') + entry.name;
+        items.push({
+          id: id,
+          path: entry.path || entry.name,
+          name: entry.name,
+          isDir: entry.is_dir,
+          indent: indent,
+          parentId: parentId,
+          expanded: false,
+          modTime: entry.mod_time,
+          size: entry.size,
+        });
+      });
+      return items;
+    }
+
+    function loadFileTree(path) {
+      var app = goApp();
+      if (!app) {
+        // Mode démo si pas de Wails
+        AxiomFileTree.setItems([
+          { id: 'root', path: '.', name: 'AXIOM', isDir: true, indent: 0, expanded: true },
+          { id: 'main.go', path: 'main.go', name: 'main.go', isDir: false, indent: 1, parentId: 'root' },
+          { id: 'app.go', path: 'app.go', name: 'app.go', isDir: false, indent: 1, parentId: 'root' },
+          { id: 'go.mod', path: 'go.mod', name: 'go.mod', isDir: false, indent: 1, parentId: 'root' },
+          { id: 'core', path: 'core', name: 'core/', isDir: true, indent: 1, parentId: 'root' },
+          { id: 'modules', path: 'modules', name: 'modules/', isDir: true, indent: 1, parentId: 'root' },
+          { id: 'frontend', path: 'frontend', name: 'frontend/', isDir: true, indent: 1, parentId: 'root' },
+        ]);
+        return;
       }
-
-      var wrapper = _createEl('div', { id: elId, 'data-module': mid }, html);
-      targetEl.appendChild(wrapper);
+      app.ListDir(path || '.').then(function (entries) {
+        var items = _buildTreeItems(entries, null, 0);
+        AxiomFileTree.setItems(items);
+      }).catch(function (err) {
+        console.warn('[Axiom] ListDir failed:', err);
+        toast('Impossible de lire le dossier', 'error');
+      });
     }
 
-    if (opts.css) _injectCSS(mid + '-slot-' + slot, opts.css);
-    if (opts.js) setTimeout(function() { _injectScript(mid + '-slot-' + slot, opts.js); }, 0);
-
-    return elId;
-  }
-
-  /**
-   * removeSlot(elId) — retire un élément injecté par son ID
-   */
-  function removeSlot(elId) {
-    var el = _el(elId);
-    if (el) el.remove();
-  }
-
-  // ── Logo & branding ────────────────────────────────────────────────────
-
-  /**
-   * setAppLogo(opts)
-   * opts: { imageUrl?, text?, titlebarColor? }
-   */
-  function setAppLogo(opts) {
-    opts = opts || {};
-    if (opts.imageUrl) {
-      var img = _el('app-logo-img');
-      img.src = opts.imageUrl;
-      img.classList.add('visible');
-    }
-    if (opts.text !== undefined) {
-      _el('app-logo-text').textContent = opts.text;
-    }
-    if (opts.titlebarColor) {
-      _el('titlebar').style.background = opts.titlebarColor;
-    }
-    if (opts.statusbarColor) {
-      _el('statusbar').style.background = opts.statusbarColor;
-    }
-  }
-
-  // ── Badge sur icône ────────────────────────────────────────────────────
-
-  function setIconBadge(moduleId, text) {
-    var icon = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]');
-    if (!icon) return;
-    var badge = icon.querySelector('.icon-badge');
-    if (!badge) return;
-    if (text === null || text === '' || text === 0) {
-      badge.classList.remove('visible');
-      badge.textContent = '';
-    } else {
-      badge.textContent = String(text);
-      badge.classList.add('visible');
-    }
-  }
-
-  // ── Désenregistrement ──────────────────────────────────────────────────
-
-  function unregisterModule(moduleId) {
-    // Retirer la vue
-    var view = _el('view-' + moduleId);
-    if (view) view.remove();
-    // Retirer l'icône
-    var icon = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]');
-    if (icon) icon.remove();
-    // Retirer les styles
-    var style = _el('style-module-' + moduleId);
-    if (style) style.remove();
-    // Revenir à l'éditeur si c'était la vue active
-    if (currentActiveView === moduleId) switchView('editor');
-    delete registry[moduleId];
-    console.log('[AxiomModuleSystem] Module unregistered:', moduleId);
-  }
-
-  // ── API publique ───────────────────────────────────────────────────────
-
-  return {
-    registerModule:    registerModule,
-    unregisterModule:  unregisterModule,
-    switchView:        switchView,
-    closeView:         closeView,
-    injectSlot:        injectSlot,
-    removeSlot:        removeSlot,
-    setAppLogo:        setAppLogo,
-    setIconBadge:      setIconBadge,
-    getRegistry:       function() { return registry; },
-    getCurrentView:    function() { return currentActiveView; },
-    getPreviousView:   function() { return previousActiveView; },
-  };
-
-})();
-
-// Exposer globalement
-window.AxiomModules = AxiomModuleSystem;
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════════════════
-var state = { openTabs: [], activeTab: null, bottomVisible: false };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// UTILITIES
-// ═══════════════════════════════════════════════════════════════════════════
-function toast(msg, type, ms) {
-  var el = document.createElement('div');
-  el.className = 'toast ' + (type || 'info');
-  el.textContent = msg;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(function() { el.remove(); }, ms || 3000);
-}
-
-function ext(p) { var m = p.match(/\.([^.]+)$/); return m ? m[1].toLowerCase() : ''; }
-function langIcon(p) { return ({go:'🐹',js:'📜',ts:'📘',json:'📋',md:'📝',html:'🌐',css:'🎨',rs:'🦀',py:'🐍'})[ext(p)] || '📄'; }
-function langName(p) { return ({go:'Go',js:'JavaScript',ts:'TypeScript',json:'JSON',md:'Markdown',html:'HTML',css:'CSS',rs:'Rust',py:'Python'})[ext(p)] || 'Texte'; }
-function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TABS
-// ═══════════════════════════════════════════════════════════════════════════
-function openTab(path, content) {
-  var ex = state.openTabs.find(function(t) { return t.path === path; });
-  if (ex) { activateTab(ex.id); return; }
-  var id = 'tab-' + Date.now();
-  var parts = path.split(/[/\\]/);
-  state.openTabs.push({ id: id, path: path, title: parts[parts.length - 1], dirty: false, language: langName(path), content: content || '' });
-  // Si on n'est pas sur la vue éditeur, y revenir
-  if (AxiomModuleSystem.getCurrentView() !== 'editor') {
-    AxiomModuleSystem.switchView('editor');
-  }
-  activateTab(id);
-}
-
-function closeTab(id) {
-  var idx = state.openTabs.findIndex(function(t) { return t.id === id; });
-  if (idx === -1) return;
-  state.openTabs.splice(idx, 1);
-  if (state.activeTab === id) { var n = state.openTabs[Math.max(0, idx - 1)]; state.activeTab = n ? n.id : null; }
-  renderTabs(); renderEditor();
-}
-
-function activateTab(id) { state.activeTab = id; renderTabs(); renderEditor(); }
-
-function renderTabs() {
-  var bar = document.getElementById('tab-bar');
-  // Vider sauf le slot module
-  var slot = document.getElementById('tab-bar-module-slot');
-  bar.innerHTML = '';
-  bar.appendChild(slot);
-
-  state.openTabs.forEach(function(tab) {
-    var el = document.createElement('div');
-    el.className = 'editor-tab' + (tab.id === state.activeTab ? ' active' : '') + (tab.dirty ? ' dirty' : '');
-    el.innerHTML = '<span>' + langIcon(tab.path) + ' ' + tab.title + '</span><span class="tab-close" data-close="' + tab.id + '">✕</span>';
-    el.addEventListener('click', function(e) { if (e.target.dataset.close) { closeTab(e.target.dataset.close); return; } activateTab(tab.id); });
-    bar.insertBefore(el, slot);
-  });
-}
-
-function renderEditor() {
-  var w = document.getElementById('welcome'), c = document.getElementById('code-editor');
-  var crumb = document.getElementById('breadcrumb'), lang = document.getElementById('status-lang');
-  var tab = state.openTabs.find(function(t) { return t.id === state.activeTab; });
-  if (!tab) { w.style.display = 'flex'; c.classList.remove('visible'); crumb.innerHTML = '<span>Axiom</span>'; lang.textContent = ''; return; }
-  w.style.display = 'none'; c.classList.add('visible');
-  var parts = tab.path.split(/[/\\]/);
-  crumb.innerHTML = parts.map(function(p, i) { return '<span>' + p + '</span>' + (i < parts.length - 1 ? '<span style="color:#555"> › </span>' : ''); }).join('');
-  lang.textContent = tab.language;
-  c.innerHTML = '<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">' + escHtml(tab.content || '') + '</pre>';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ACTIVITY BAR — gestion des clics (native + modules)
-// ═══════════════════════════════════════════════════════════════════════════
-document.getElementById('activity-bar').addEventListener('click', function(e) {
-  var icon = e.target.closest('.activity-icon');
-  if (!icon) return;
-  var panel = icon.dataset.panel;
-  if (!panel) return;
-
-  // Modules enregistrés → déléguer à AxiomModuleSystem
-  var reg = AxiomModuleSystem.getRegistry();
-  if (reg[panel]) {
-    AxiomModuleSystem.switchView(panel);
-    return;
-  }
-
-  // Icônes natives
-  document.querySelectorAll('.activity-icon').forEach(function(i) { i.classList.remove('active'); });
-  icon.classList.add('active');
-  document.getElementById('sidebar-header-text').textContent = (panel || '').toUpperCase();
-
-  // Retour à l'éditeur si on clique sur un panel natif depuis une vue module
-  if (panel === 'explorer' || panel === 'search' || panel === 'scm' || panel === 'debug' || panel === 'extensions') {
-    if (AxiomModuleSystem.getCurrentView() !== 'editor') {
-      AxiomModuleSystem.switchView('editor');
-    }
-  }
-});
-
-// File tree clicks
-document.getElementById('sidebar-content').addEventListener('click', function(e) {
-  var item = e.target.closest('.tree-item'); if (!item || item.classList.contains('dir')) return;
-  var file = item.dataset.file || item.querySelector('span:last-child').textContent;
-  document.querySelectorAll('.tree-item').forEach(function(i) { i.classList.remove('active'); });
-  item.classList.add('active');
-  if (window.go && window.go.main && window.go.main.App) {
-    window.go.main.App.ReadFile(file)
-      .then(function(content) { openTab(file, content); })
-      .catch(function(err) { toast('Lecture impossible: ' + err, 'error'); openTab(file, ''); });
-  } else {
-    openTab(file, '// Ouvre ce fichier pour voir son contenu\n');
-  }
-});
-
-// Bottom panel tabs (natifs)
-document.querySelectorAll('.panel-tab').forEach(function(t) {
-  t.addEventListener('click', function() {
-    document.querySelectorAll('.panel-tab').forEach(function(x) { x.classList.remove('active'); });
-    t.classList.add('active'); state.bottomVisible = true;
-    document.getElementById('bottom-panel').classList.add('visible');
-    // Restaurer le panel content natif si un module l'avait pris
-    document.getElementById('panel-content').style.display = '';
-    document.getElementById('panel-content-module-slot').classList.remove('active');
-  });
-});
-
-// Panel resize handle
-(function() {
-  var h = document.getElementById('panel-resize'), drag = false, sy = 0, sh = 0;
-  h.addEventListener('mousedown', function(e) { drag = true; sy = e.clientY; sh = document.getElementById('bottom-panel').offsetHeight; document.body.style.cursor = 'ns-resize'; e.preventDefault(); });
-  document.addEventListener('mousemove', function(e) { if (!drag) return; document.getElementById('bottom-panel').style.height = Math.max(80, Math.min(600, sh + (sy - e.clientY))) + 'px'; });
-  document.addEventListener('mouseup', function() { drag = false; document.body.style.cursor = ''; });
-})();
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMMAND PALETTE
-// ═══════════════════════════════════════════════════════════════════════════
-var COMMANDS = [
-  { label: 'Nouveau fichier',        key: 'Ctrl+N',         action: function() { toast('Nouveau fichier — TODO', 'info'); } },
-  { label: 'Sauvegarder',            key: 'Ctrl+S',         action: function() { axiomSave(); } },
-  { label: "Fermer l'onglet",        key: 'Ctrl+W',         action: function() { if (state.activeTab) closeTab(state.activeTab); } },
-  { label: 'Terminal',               key: 'Ctrl+`',         action: function() { togglePanel(); } },
-  { label: 'Sidebar',                key: 'Ctrl+B',         action: function() { toggleSidebar(); } },
-  { label: 'Thème sombre',           key: '',               action: function() { axiomGoSetTheme('dark'); } },
-  { label: 'Thème clair',            key: '',               action: function() { axiomGoSetTheme('light'); } },
-  { label: 'Sauvegarder workspace',  key: '',               action: function() { axiomGoSaveWorkspace(); } },
-  { label: 'Vue éditeur',            key: 'Ctrl+1',         action: function() { AxiomModuleSystem.switchView('editor'); } },
-  { label: 'Liste des modules',      key: '',               action: function() { var r = AxiomModuleSystem.getRegistry(); toast('Modules: ' + Object.keys(r).join(', ') || 'aucun', 'info', 4000); } },
-];
-var cmdSel = 0;
-
-function openCommandPalette() {
-  document.getElementById('command-palette').classList.add('visible');
-  var i = document.getElementById('command-input'); i.value = ''; cmdSel = 0; renderCmds(''); i.focus();
-}
-function closeCommandPalette() { document.getElementById('command-palette').classList.remove('visible'); }
-function renderCmds(f) {
-  // Merge avec les commandes des modules
-  var allCmds = COMMANDS.concat(window._moduleCommands || []);
-  var list = allCmds.filter(function(c) { return c.label.toLowerCase().includes(f.toLowerCase()); });
-  var ct = document.getElementById('command-results'); ct.innerHTML = '';
-  list.forEach(function(cmd, i) {
-    var el = document.createElement('div'); el.className = 'cmd-item' + (i === cmdSel ? ' selected' : '');
-    el.innerHTML = '<span class="cmd-label">⚡ ' + cmd.label + '</span><span class="cmd-key">' + (cmd.key || '') + '</span>';
-    el.addEventListener('click', function() { cmd.action(); closeCommandPalette(); });
-    ct.appendChild(el);
-  });
-}
-document.getElementById('command-input').addEventListener('input', function(e) { cmdSel = 0; renderCmds(e.target.value); });
-document.getElementById('command-input').addEventListener('keydown', function(e) {
-  var l = document.querySelectorAll('.cmd-item');
-  if (e.key === 'ArrowDown') { cmdSel = Math.min(cmdSel + 1, l.length - 1); renderCmds(e.target.value); }
-  else if (e.key === 'ArrowUp') { cmdSel = Math.max(cmdSel - 1, 0); renderCmds(e.target.value); }
-  else if (e.key === 'Enter') { if (l[cmdSel]) l[cmdSel].click(); }
-  else if (e.key === 'Escape') { closeCommandPalette(); }
-});
-document.getElementById('command-palette').addEventListener('click', function(e) { if (e.target === document.getElementById('command-palette')) closeCommandPalette(); });
-
-// API publique pour que les modules ajoutent des commandes
-window._moduleCommands = [];
-window.axiomRegisterCommand = function(label, action, key) {
-  window._moduleCommands.push({ label: label, action: action, key: key || '' });
-};
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-  var c = e.ctrlKey || e.metaKey;
-  if (c && e.shiftKey && e.key === 'P') { e.preventDefault(); openCommandPalette(); return; }
-  if (c && e.key === 's') { e.preventDefault(); axiomSave(); return; }
-  if (c && e.key === 'w') { e.preventDefault(); if (state.activeTab) closeTab(state.activeTab); return; }
-  if (c && e.key === 'b') { e.preventDefault(); toggleSidebar(); return; }
-  if (c && e.key === '`') { e.preventDefault(); togglePanel(); return; }
-  if (c && e.key === '1') { e.preventDefault(); AxiomModuleSystem.switchView('editor'); return; }
-  if (e.key === 'Escape') {
-    closeCommandPalette();
-    document.getElementById('context-menu').classList.remove('visible');
-    // Fermer l'overlay actif si présent
-    var activeOverlay = document.querySelector('.app-view.overlay.active');
-    if (activeOverlay) { AxiomModuleSystem.closeView(activeOverlay.id.replace('view-', '')); }
-  }
-});
-
-function toggleSidebar() {
-  var sb = document.getElementById('sidebar'); var hidden = sb.style.display === 'none';
-  sb.style.display = hidden ? '' : 'none';
-  document.getElementById('app').style.gridTemplateColumns = hidden ? '48px 240px 1fr' : '48px 0 1fr';
-}
-function togglePanel() {
-  state.bottomVisible = !state.bottomVisible;
-  document.getElementById('bottom-panel').classList.toggle('visible', state.bottomVisible);
-  if (state.bottomVisible) document.querySelector('.panel-tab').classList.add('active');
-}
-
-// Context menu
-document.addEventListener('contextmenu', function(e) {
-  e.preventDefault();
-  var menu = document.getElementById('context-menu');
-  menu.innerHTML = '<div class="ctx-item" onclick="openCommandPalette()">Palette de commandes <kbd>Ctrl+⇧+P</kbd></div><div class="ctx-sep"></div><div class="ctx-item">Copier <kbd>Ctrl+C</kbd></div><div class="ctx-item">Coller <kbd>Ctrl+V</kbd></div>';
-  menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px';
-  menu.classList.add('visible');
-});
-document.addEventListener('click', function() { document.getElementById('context-menu').classList.remove('visible'); });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GO BINDING HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
-function goApp() {
-  return window.go && window.go.main && window.go.main.App ? window.go.main.App : null;
-}
-
-function axiomSave() {
-  var app = goApp();
-  if (app) {
-    app.SaveWorkspace()
-      .then(function() { toast('Workspace sauvegardé ✓', 'success', 1500); })
-      .catch(function(e) { toast('Erreur sauvegarde: ' + e, 'error'); });
-  } else {
-    toast('Sauvegardé ✓', 'success', 1500);
-  }
-}
-
-function axiomGoSetTheme(themeID) {
-  axiomSetTheme(themeID);
-  var app = goApp();
-  if (app) { app.SetTheme(themeID).catch(function(e) { console.warn('SetTheme:', e); }); }
-}
-
-function axiomGoSaveWorkspace() {
-  var app = goApp();
-  if (app) {
-    app.SaveWorkspace()
-      .then(function() { toast('Workspace sauvegardé ✓', 'success', 2000); })
-      .catch(function(e) { toast('Erreur: ' + e, 'error'); });
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// WAILS v2 BRIDGE — Go → JS via axiom:event
-// ═══════════════════════════════════════════════════════════════════════════
-function initWailsBridge() {
-  console.log('[Axiom] Wails v2 bridge initializing…');
-
-  window.runtime.EventsOn('axiom:event', function(ev) {
-    if (!ev || !ev.topic) return;
-    console.log('[Axiom] Go→JS:', ev.topic, ev.payload || '');
-
-    switch (ev.topic) {
-
-      // ── Topics natifs ─────────────────────────────────────────────
-      case 'file.opened':
-        if (ev.payload && ev.payload.path) {
-          openTab(ev.payload.path, ev.payload.content || '');
-        }
-        break;
-
-      case 'ui.theme.set':
-        if (ev.payload && ev.payload.theme_id) {
-          axiomSetTheme(ev.payload.theme_id);
-        }
-        break;
-
-      case 'workspace.restored':
-        var n = (ev.payload && ev.payload.tabs_restored) || 0;
-        toast('Workspace restauré (' + n + ' onglets)', 'success', 2500);
-        break;
-
-      case 'ai.response':
-        if (ev.payload && !ev.payload.success) {
-          toast('AI: ' + (ev.payload.error || 'erreur inconnue'), 'error', 4000);
-        }
-        break;
-
-      case 'system.module.loaded':
-        if (ev.payload) console.log('[Axiom] Module loaded:', ev.payload.module_id);
-        break;
-
-      case 'security.denied':
-        console.warn('[Axiom] Security denied:', ev.payload);
-        break;
-
-      // ── Topics module UI ──────────────────────────────────────────
-      // Envoyés depuis Go via engine.Dispatch("my-module", api.TopicUIOpenPanel, ...)
-      // Le payload étendu est passé dans le champ Content (JSON stringifié)
-
-      case 'ui.panel.open':
-        _handleModulePanelOpen(ev.payload);
-        break;
-
-      case 'ui.panel.close':
-        if (ev.payload && ev.payload.panel_id) {
-          AxiomModuleSystem.unregisterModule(ev.payload.panel_id);
-        }
-        break;
-
-      // Topic custom : ui.module.register
-      // Permet d'enregistrer un module complet depuis Go
-      case 'ui.module.register':
-        _handleModuleRegister(ev.payload);
-        break;
-
-      // Topic custom : ui.slot.inject
-      case 'ui.slot.inject':
-        _handleSlotInject(ev.payload);
-        break;
-
-      // Topic custom : ui.app.branding
-      case 'ui.app.branding':
-        _handleAppBranding(ev.payload);
-        break;
-
-      // Topic custom : ui.icon.badge
-      case 'ui.icon.badge':
-        if (ev.payload && ev.payload.module_id !== undefined) {
-          AxiomModuleSystem.setIconBadge(ev.payload.module_id, ev.payload.count);
-        }
-        break;
-
-      default:
-        // Dispatcher aux listeners de modules enregistrés
-        document.dispatchEvent(new CustomEvent('axiom:bus-event', { detail: ev }));
-        break;
-    }
-  });
-
-  // JS → Go
-  window.axiomEmit = function(eventType, data) {
-    window.runtime.EventsEmit('axiom:input', {
-      window_id: 'main',
-      event_type: eventType,
-      data: data || {}
+    // Clic sur un fichier dans l'arbre → ouvrir dans l'éditeur
+    AxiomFileTree.onItemClick(function (item) {
+      var app = goApp();
+      if (app) {
+        app.ReadFile(item.path)
+          .then(function (content) { openTab(item.path, content); })
+          .catch(function (err) { toast('Lecture impossible: ' + err, 'error'); openTab(item.path, ''); });
+      } else {
+        openTab(item.path, '// ' + item.path + '\n');
+      }
     });
-  };
 
-  document.getElementById('status-engine').textContent = '✓ Engine';
-  toast('Axiom IDE prêt', 'success', 1500);
-  console.log('[Axiom] Wails v2 bridge ready');
-}
+    // Rafraîchir l'arbre depuis un événement
+    document.addEventListener('axiom:filetree-refresh', function (e) {
+      loadFileTree(e.detail && e.detail.path);
+    });
 
-// ── Handlers de topics module ────────────────────────────────────────────
+    // Expansion dynamique d'un dossier
+    document.addEventListener('axiom:filetree-expand', function (e) {
+      var app = goApp();
+      if (!app || !e.detail) return;
+      app.ListDir(e.detail.path).then(function (entries) {
+        var children = _buildTreeItems(entries, e.detail.id, (e.detail.indent || 0) + 1);
+        children.forEach(function (child) { AxiomFileTree.addItem(child); });
+        AxiomFileTree.expand(e.detail.id);
+      });
+    });
 
-function _handleModulePanelOpen(payload) {
-  if (!payload || !payload.panel_id) return;
 
-  // Parser le contenu étendu (JSON dans Content)
-  var extended = {};
-  if (payload.content) {
-    try { extended = JSON.parse(payload.content); } catch(e) { /* content est du HTML brut */ }
-  }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACTIVITY BAR
+    // ═══════════════════════════════════════════════════════════════════════════
 
-  var moduleId = payload.panel_id;
+    document.getElementById('activity-bar').addEventListener('click', function (e) {
+      var icon = e.target.closest('.activity-icon');
+      if (!icon) return;
+      var panel = icon.dataset.panel;
+      if (!panel) return;
 
-  // Si content n'est pas du JSON, c'est du HTML direct
-  var html = (typeof extended === 'object' && extended.html) ? extended.html : (payload.content || '');
+      var reg = AxiomModuleSystem.getRegistry();
+      if (reg[panel]) { AxiomModuleSystem.switchView(panel); return; }
 
-  AxiomModuleSystem.registerModule({
-    moduleId:          moduleId,
-    icon:              extended.icon || payload.icon || '⬡',
-    iconImageUrl:      extended.iconImageUrl || null,
-    title:             payload.title || moduleId,
-    viewType:          extended.viewType || 'replace',
-    html:              html,
-    css:               extended.css  || '',
-    js:                extended.js   || '',
-    autoActivate:      extended.autoActivate !== false,
-    showInActivityBar: extended.showInActivityBar !== false,
-    position:          extended.position || 'top',
-    closeable:         extended.closeable !== false,
-  });
+      document.querySelectorAll('.activity-icon').forEach(function (i) { i.classList.remove('active'); });
+      icon.classList.add('active');
+      document.getElementById('sidebar-header-text').textContent = (panel || '').charAt(0).toUpperCase() + panel.slice(1);
 
-  toast('Module "' + (payload.title || moduleId) + '" chargé', 'module', 2000);
-}
+      if (['explorer', 'search', 'scm', 'debug', 'extensions'].indexOf(panel) !== -1) {
+        if (AxiomModuleSystem.getCurrentView() !== 'editor') AxiomModuleSystem.switchView('editor');
+        if (panel === 'explorer') loadFileTree('.');
+      }
+    });
 
-function _handleModuleRegister(payload) {
-  if (!payload || !payload.moduleId) return;
-  AxiomModuleSystem.registerModule(payload);
-  toast('Module "' + (payload.title || payload.moduleId) + '" enregistré', 'module', 2000);
-}
 
-function _handleSlotInject(payload) {
-  if (!payload || !payload.slot) return;
-  AxiomModuleSystem.injectSlot(payload.slot, payload.html || '', {
-    moduleId: payload.moduleId,
-    id:       payload.id,
-    replace:  payload.replace,
-    css:      payload.css,
-    js:       payload.js,
-  });
-}
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BOTTOM PANEL
+    // ═══════════════════════════════════════════════════════════════════════════
 
-function _handleAppBranding(payload) {
-  if (!payload) return;
-  AxiomModuleSystem.setAppLogo({
-    imageUrl:       payload.logo_url,
-    text:           payload.app_name,
-    titlebarColor:  payload.titlebar_color,
-    statusbarColor: payload.statusbar_color,
-  });
-}
+    document.querySelectorAll('.panel-tab').forEach(function (t) {
+      t.addEventListener('click', function () {
+        document.querySelectorAll('.panel-tab').forEach(function (x) { x.classList.remove('active'); });
+        t.classList.add('active');
+        state.bottomVisible = true;
+        document.getElementById('bottom-panel').classList.add('visible');
+        document.getElementById('panel-content').style.display = '';
+        document.getElementById('panel-content-module-slot').classList.remove('active');
+      });
+    });
 
-// Poll window.runtime
-window.addEventListener('load', function() {
-  var attempts = 0, maxAttempts = 50;
-  var interval = setInterval(function() {
-    attempts++;
-    if (window.runtime) {
-      clearInterval(interval);
-      initWailsBridge();
-    } else if (attempts >= maxAttempts) {
-      clearInterval(interval);
-      console.log('[Axiom] Running without Wails runtime (browser/dev mode)');
-      document.getElementById('status-engine').textContent = '⚠ No runtime';
+    (function () {
+      var h = document.getElementById('panel-resize'), drag = false, sy = 0, sh = 0;
+      h.addEventListener('mousedown', function (e) { drag = true; sy = e.clientY; sh = document.getElementById('bottom-panel').offsetHeight; document.body.style.cursor = 'ns-resize'; e.preventDefault(); });
+      document.addEventListener('mousemove', function (e) { if (!drag) return; document.getElementById('bottom-panel').style.height = Math.max(80, Math.min(600, sh + (sy - e.clientY))) + 'px'; });
+      document.addEventListener('mouseup', function () { drag = false; document.body.style.cursor = ''; });
+    })();
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COMMAND PALETTE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var COMMANDS = [
+      { label: 'Nouveau fichier', key: 'Ctrl+N', action: function () { axiomNewFile(); } },
+      { label: 'Sauvegarder', key: 'Ctrl+S', action: function () { axiomSave(); } },
+      { label: 'Sauvegarder tout', key: 'Ctrl+Shift+S', action: function () { axiomSaveAll(); } },
+      { label: "Fermer l'onglet", key: 'Ctrl+W', action: function () { if (state.activeTab) closeTab(state.activeTab); } },
+      { label: 'Terminal', key: 'Ctrl+`', action: function () { togglePanel(); } },
+      { label: 'Sidebar', key: 'Ctrl+B', action: function () { toggleSidebar(); } },
+      { label: 'Formater le document', key: 'Shift+Alt+F', action: function () { monacoExec('editor.action.formatDocument'); } },
+      { label: 'Rechercher', key: 'Ctrl+F', action: function () { monacoExec('actions.find'); } },
+      { label: 'Thème sombre', key: '', action: function () { axiomGoSetTheme('dark'); } },
+      { label: 'Thème clair', key: '', action: function () { axiomGoSetTheme('light'); } },
+      { label: 'Zoom +', key: 'Ctrl++', action: function () { adjustFontSize(1); } },
+      { label: 'Zoom -', key: 'Ctrl+-', action: function () { adjustFontSize(-1); } },
+      { label: 'Zoom 100%', key: 'Ctrl+0', action: function () { adjustFontSize(0); } },
+      { label: 'Sauvegarder workspace', key: '', action: function () { axiomGoSaveWorkspace(); } },
+      { label: 'Vue éditeur', key: 'Ctrl+1', action: function () { AxiomModuleSystem.switchView('editor'); } },
+      { label: 'Rafraîchir arbre fichiers', key: '', action: function () { loadFileTree('.'); } },
+      { label: 'Liste des modules', key: '', action: function () { var r = AxiomModuleSystem.getRegistry(); toast('Modules: ' + (Object.keys(r).join(', ') || 'aucun'), 'info', 4000); } },
+    ];
+    var cmdSel = 0;
+    window._moduleCommands = [];
+    window.axiomRegisterCommand = function (label, action, key) { window._moduleCommands.push({ label: label, action: action, key: key || '' }); };
+
+    function openCommandPalette() {
+      document.getElementById('command-palette').classList.add('visible');
+      var i = document.getElementById('command-input'); i.value = ''; cmdSel = 0; renderCmds(''); i.focus();
     }
-  }, 100);
-});
+    function closeCommandPalette() { document.getElementById('command-palette').classList.remove('visible'); }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════════════════
-renderTabs();
-renderEditor();
-console.log('[Axiom IDE] Frontend ready — AxiomModuleSystem active');
-</script>
+    function renderCmds(f) {
+      var all = COMMANDS.concat(window._moduleCommands || []);
+      var list = all.filter(function (c) { return c.label.toLowerCase().includes(f.toLowerCase()); });
+      var ct = document.getElementById('command-results'); ct.innerHTML = '';
+      list.forEach(function (cmd, i) {
+        var el = document.createElement('div');
+        el.className = 'cmd-item' + (i === cmdSel ? ' selected' : '');
+        el.innerHTML = '<span class="cmd-label">⚡ ' + cmd.label + '</span><span class="cmd-key">' + (cmd.key || '') + '</span>';
+        el.addEventListener('click', function () { cmd.action(); closeCommandPalette(); });
+        ct.appendChild(el);
+      });
+    }
+
+    document.getElementById('command-input').addEventListener('input', function (e) { cmdSel = 0; renderCmds(e.target.value); });
+    document.getElementById('command-input').addEventListener('keydown', function (e) {
+      var l = document.querySelectorAll('.cmd-item');
+      if (e.key === 'ArrowDown') { cmdSel = Math.min(cmdSel + 1, l.length - 1); renderCmds(e.target.value); }
+      else if (e.key === 'ArrowUp') { cmdSel = Math.max(cmdSel - 1, 0); renderCmds(e.target.value); }
+      else if (e.key === 'Enter') { if (l[cmdSel]) l[cmdSel].click(); }
+      else if (e.key === 'Escape') { closeCommandPalette(); }
+    });
+    document.getElementById('command-palette').addEventListener('click', function (e) { if (e.target === document.getElementById('command-palette')) closeCommandPalette(); });
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // KEYBOARD SHORTCUTS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    document.addEventListener('keydown', function (e) {
+      var c = e.ctrlKey || e.metaKey;
+      if (c && e.shiftKey && e.key === 'P') { e.preventDefault(); openCommandPalette(); return; }
+      if (c && e.key === 's' && e.shiftKey) { e.preventDefault(); axiomSaveAll(); return; }
+      if (c && e.key === 's') { e.preventDefault(); axiomSave(); return; }
+      if (c && e.key === 'w') { e.preventDefault(); if (state.activeTab) closeTab(state.activeTab); return; }
+      if (c && e.key === 'b') { e.preventDefault(); toggleSidebar(); return; }
+      if (c && e.key === '`') { e.preventDefault(); togglePanel(); return; }
+      if (c && e.key === '1') { e.preventDefault(); AxiomModuleSystem.switchView('editor'); return; }
+      if (c && e.key === 'n') { e.preventDefault(); axiomNewFile(); return; }
+      if (c && e.key === '=') { e.preventDefault(); adjustFontSize(1); return; }
+      if (c && e.key === '-') { e.preventDefault(); adjustFontSize(-1); return; }
+      if (c && e.key === '0') { e.preventDefault(); adjustFontSize(0); return; }
+      if (e.key === 'F12') { e.preventDefault(); monacoExec('editor.action.revealDefinition'); return; }
+      if (e.key === 'Escape') {
+        closeCommandPalette();
+        AxiomMenu.closeAll();
+        document.getElementById('context-menu').classList.remove('visible');
+        var ov = document.querySelector('.app-view.overlay.active');
+        if (ov) AxiomModuleSystem.closeView(ov.id.replace('view-', ''));
+      }
+    });
+
+    function toggleSidebar() {
+      var sb = document.getElementById('sidebar');
+      var hidden = sb.style.display === 'none';
+      sb.style.display = hidden ? '' : 'none';
+      document.getElementById('app').style.gridTemplateColumns = hidden ? '48px 240px 1fr' : '48px 0 1fr';
+    }
+    function togglePanel() {
+      state.bottomVisible = !state.bottomVisible;
+      document.getElementById('bottom-panel').classList.toggle('visible', state.bottomVisible);
+      if (state.bottomVisible) document.querySelector('.panel-tab').classList.add('active');
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONTEXT MENU
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    document.addEventListener('contextmenu', function (e) {
+      if (e.target.closest('.tree-item')) return; // Délégué à AxiomFileTree
+      e.preventDefault();
+      var menu = document.getElementById('context-menu');
+      menu.innerHTML = '<div class="ctx-item" onclick="openCommandPalette()">Palette de commandes <kbd>Ctrl+⇧+P</kbd></div>'
+        + '<div class="ctx-sep"></div>'
+        + '<div class="ctx-item" onclick="monacoExec(\'editor.action.formatDocument\')">Formater <kbd>⇧+Alt+F</kbd></div>'
+        + '<div class="ctx-item" onclick="monacoExec(\'actions.find\')">Rechercher <kbd>Ctrl+F</kbd></div>';
+      menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px';
+      menu.classList.add('visible');
+    });
+    document.addEventListener('click', function () { document.getElementById('context-menu').classList.remove('visible'); });
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GO BINDING HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function goApp() { return window.go && window.go.main && window.go.main.App ? window.go.main.App : null; }
+
+    function axiomSave() {
+      var tab = state.openTabs.find(function (t) { return t.id === state.activeTab; });
+      if (!tab) return;
+      // Récupérer le contenu courant de Monaco
+      var content = AxiomEditor.getContent();
+      if (content !== null) tab.content = content;
+      var app = goApp();
+      if (app) {
+        app.WriteFile(tab.path, tab.content || '')
+          .then(function () { tab.dirty = false; renderTabs(); toast('Sauvegardé ✓', 'success', 1500); })
+          .catch(function (e) { toast('Erreur: ' + e, 'error'); });
+      } else {
+        tab.dirty = false; renderTabs(); toast('Sauvegardé ✓', 'success', 1500);
+      }
+    }
+
+    function axiomGoSetTheme(themeID) {
+      axiomSetTheme(themeID);
+      AxiomEditor.setTheme(themeID);
+      var app = goApp();
+      if (app) app.SetTheme(themeID).catch(function () { });
+    }
+
+    function axiomGoSaveWorkspace() {
+      var app = goApp();
+      if (app) app.SaveWorkspace().then(function () { toast('Workspace sauvegardé ✓', 'success', 2000); }).catch(function (e) { toast('Erreur: ' + e, 'error'); });
+    }
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WAILS v2 BRIDGE — Go → JS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function initWailsBridge() {
+      console.log('[Axiom] Wails v2 bridge initializing…');
+
+      window.runtime.EventsOn('axiom:event', function (ev) {
+        if (!ev || !ev.topic) return;
+
+        switch (ev.topic) {
+          case 'file.opened':
+            if (ev.payload && ev.payload.path) openTab(ev.payload.path, ev.payload.content || '');
+            break;
+          case 'ui.theme.set':
+            if (ev.payload && ev.payload.theme_id) axiomGoSetTheme(ev.payload.theme_id);
+            break;
+          case 'workspace.restored':
+            var n = (ev.payload && ev.payload.tabs_restored) || 0;
+            toast('Workspace restauré (' + n + ' onglets)', 'success', 2500);
+            loadFileTree('.');
+            break;
+          case 'ai.response':
+            if (ev.payload && !ev.payload.success) toast('AI: ' + (ev.payload.error || 'erreur inconnue'), 'error', 4000);
+            break;
+          case 'system.module.loaded':
+            if (ev.payload) console.log('[Axiom] Module loaded:', ev.payload.module_id);
+            break;
+          case 'security.denied':
+            console.warn('[Axiom] Security denied:', ev.payload);
+            break;
+          case 'ui.panel.open':
+            _handleModulePanelOpen(ev.payload);
+            break;
+          case 'ui.panel.close':
+            if (ev.payload && ev.payload.panel_id) AxiomModuleSystem.unregisterModule(ev.payload.panel_id);
+            break;
+          case 'ui.module.register':
+            _handleModuleRegister(ev.payload);
+            break;
+          case 'ui.slot.inject':
+            _handleSlotInject(ev.payload);
+            break;
+          case 'ui.slot.remove':
+            if (ev.payload && ev.payload.element_id) AxiomModuleSystem.removeSlot(ev.payload.element_id);
+            break;
+          case 'ui.app.branding':
+            _handleAppBranding(ev.payload);
+            break;
+          case 'ui.icon.badge':
+            if (ev.payload && ev.payload.module_id !== undefined) AxiomModuleSystem.setIconBadge(ev.payload.module_id, ev.payload.count);
+            break;
+          case 'ui.view.switch':
+            if (ev.payload && ev.payload.view_id) AxiomModuleSystem.switchView(ev.payload.view_id);
+            break;
+          default:
+            document.dispatchEvent(new CustomEvent('axiom:bus-event', { detail: ev }));
+        }
+      });
+
+      window.axiomEmit = function (eventType, data) {
+        window.runtime.EventsEmit('axiom:input', { window_id: 'main', event_type: eventType, data: data || {} });
+      };
+
+      document.getElementById('status-engine').textContent = '✓ Engine';
+      toast('Axiom IDE prêt', 'success', 1500);
+      loadFileTree('.');
+      console.log('[Axiom] Wails v2 bridge ready');
+    }
+
+    function _handleModulePanelOpen(payload) {
+      if (!payload || !payload.panel_id) return;
+      var extended = {};
+      if (payload.content) { try { extended = JSON.parse(payload.content); } catch (e) { } }
+      var moduleId = payload.panel_id;
+      var html = (typeof extended === 'object' && extended.html) ? extended.html : (payload.content || '');
+      AxiomModuleSystem.registerModule({
+        moduleId: moduleId, icon: extended.icon || payload.icon || '⬡', iconImageUrl: extended.iconImageUrl || null,
+        title: payload.title || moduleId, viewType: extended.viewType || 'replace', html: html,
+        css: extended.css || '', js: extended.js || '', autoActivate: extended.autoActivate !== false,
+        showInActivityBar: extended.showInActivityBar !== false, position: extended.position || 'top', closeable: extended.closeable !== false,
+      });
+      toast('Module "' + (payload.title || moduleId) + '" chargé', 'module', 2000);
+    }
+
+    function _handleModuleRegister(payload) {
+      if (!payload || !payload.moduleId) return;
+      AxiomModuleSystem.registerModule(payload);
+      toast('Module "' + (payload.title || payload.moduleId) + '" enregistré', 'module', 2000);
+    }
+
+    function _handleSlotInject(payload) {
+      if (!payload || !payload.slot) return;
+      AxiomModuleSystem.injectSlot(payload.slot, payload.html || '', { moduleId: payload.moduleId, id: payload.id, replace: payload.replace, css: payload.css, js: payload.js });
+    }
+
+    function _handleAppBranding(payload) {
+      if (!payload) return;
+      AxiomModuleSystem.setAppLogo({ imageUrl: payload.logo_url, text: payload.app_name, titlebarColor: payload.titlebar_color, statusbarColor: payload.statusbar_color });
+    }
+
+    // Poll window.runtime
+    window.addEventListener('load', function () {
+      var attempts = 0, maxAttempts = 50;
+      var interval = setInterval(function () {
+        attempts++;
+        if (window.runtime) { clearInterval(interval); initWailsBridge(); }
+        else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.log('[Axiom] Running without Wails runtime (browser/dev mode)');
+          document.getElementById('status-engine').textContent = '⚠ No runtime';
+          loadFileTree('.');
+        }
+      }, 100);
+    });
+
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Initialiser les menus de la titlebar
+    AxiomMenu.init();
+
+    // Charger Monaco en arrière-plan
+    AxiomEditor.load();
+
+    // Rendu initial
+    renderTabs();
+    renderEditor();
+
+    console.log('[Axiom IDE] Frontend ready — AxiomModuleSystem + AxiomFileTree + AxiomEditor + AxiomMenu actifs');
+  </script>
 </body>
+
 </html>

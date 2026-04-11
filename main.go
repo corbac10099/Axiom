@@ -1,5 +1,7 @@
 package main
 
+//go:generate go run tools/sync_modules.go
+
 import (
 	"embed"
 	"log"

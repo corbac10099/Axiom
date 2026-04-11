@@ -19,6 +19,7 @@ import (
 	"github.com/axiom-ide/axiom/core/tabs"
 	"github.com/axiom-ide/axiom/core/workspace"
 	aiassistant "github.com/axiom-ide/axiom/modules/ai-assistant"
+	"github.com/axiom-ide/axiom/modules"
 )
 
 // App is the main struct bound to the Wails frontend.
@@ -104,6 +105,7 @@ func (a *App) OnStartup(ctx context.Context) {
 		Temperature: cfg.AI.Temperature,
 		TimeoutSecs: cfg.AI.TimeoutSecs,
 	}, a.logger))
+	modules.AutoRegister(a.runner, a.logger)
 
 	// ── Workspace Persistence ───────────────────────────────────────
 	a.persist = workspace.NewPersistence(
