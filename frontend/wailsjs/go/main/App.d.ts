@@ -10,14 +10,24 @@ export function EmitEvent(arg1:string,arg2:string):Promise<void>;
 
 export function GetConfig():Promise<Record<string, any>>;
 
+export function InjectSlot(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:boolean):Promise<void>;
+
 export function ListDir(arg1:string):Promise<Array<filesystem.FileEntry>>;
 
 export function OpenTab(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function ReadFile(arg1:string):Promise<string>;
 
+export function RegisterModuleUI(arg1:string):Promise<void>;
+
 export function SaveWorkspace():Promise<void>;
 
+export function SetAppBranding(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
+export function SetIconBadge(arg1:string,arg2:number):Promise<void>;
+
 export function SetTheme(arg1:string):Promise<void>;
+
+export function SwitchView(arg1:string):Promise<void>;
 
 export function WriteFile(arg1:string,arg2:string):Promise<void>;

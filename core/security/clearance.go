@@ -40,18 +40,30 @@ var topicRequirements = map[string]ClearanceLevel{
 	"file.create": L1,
 	"file.write":  L1,
 	"file.delete": L1,
-	// file.opened is published by the internal filesystem handler (L3).
-	// External modules must not publish on this topic.
+	// file.opened est publié par le filesystem handler interne (L3).
 	"file.opened": L3,
 
-	// ── UI ────────────────────────────────────────────────────────────
+	// ── UI natifs ─────────────────────────────────────────────────────
 	"ui.panel.open":  L2,
 	"ui.panel.close": L2,
 	"ui.theme.set":   L2,
 	"ui.window.new":  L2,
-	// ui.user.input is sent by the frontend bridge (engine, L3).
-	// L1 is sufficient for receiving; engine dispatches at L3 which satisfies it.
+	// ui.user.input est envoyé par le bridge frontend (engine, L3).
 	"ui.user.input": L1,
+
+	// ── UI Module System ──────────────────────────────────────────────
+	// Enregistrement d'une vue module complète — L2 (Architect).
+	"ui.module.register": L2,
+	// Injection dans un slot — L2.
+	"ui.slot.inject": L2,
+	// Retrait d'un élément injecté — L2.
+	"ui.slot.remove": L2,
+	// Modification du branding app — L3 (Sovereign uniquement).
+	"ui.app.branding": L3,
+	// Badge sur icône — L2.
+	"ui.icon.badge": L2,
+	// Switch de vue — L2.
+	"ui.view.switch": L2,
 
 	// ── Editor ────────────────────────────────────────────────────────
 	"editor.tab.open":    L1,
@@ -62,17 +74,16 @@ var topicRequirements = map[string]ClearanceLevel{
 	// ── Workspace ────────────────────────────────────────────────────
 	"workspace.save":    L1,
 	"workspace.restore": L1,
-	// workspace.restored is published internally after a successful restore (L3).
+	// workspace.restored est publié en interne après restore (L3).
 	"workspace.restored": L3,
 
 	// ── AI ────────────────────────────────────────────────────────────
 	"ai.command": L2,
-	// ai.response is published by the engine (L3) after executing an AI command.
+	// ai.response est publié par l'engine (L3) après une commande AI.
 	"ai.response": L3,
 
 	// ── Security ─────────────────────────────────────────────────────
-	// Published directly by the Security Manager via publishFn — not through Dispatch.
-	// Listed for completeness; the manager bypasses the authorization check for these.
+	// Publiés directement par le Security Manager via publishFn (bypass Dispatch).
 	"security.denied": L3,
 	"security.audit":  L3,
 }

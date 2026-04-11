@@ -18,6 +18,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function InjectSlot(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['main']['App']['InjectSlot'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+}
+
 export function ListDir(arg1) {
   return window['go']['main']['App']['ListDir'](arg1);
 }
@@ -30,12 +34,28 @@ export function ReadFile(arg1) {
   return window['go']['main']['App']['ReadFile'](arg1);
 }
 
+export function RegisterModuleUI(arg1) {
+  return window['go']['main']['App']['RegisterModuleUI'](arg1);
+}
+
 export function SaveWorkspace() {
   return window['go']['main']['App']['SaveWorkspace']();
 }
 
+export function SetAppBranding(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SetAppBranding'](arg1, arg2, arg3, arg4);
+}
+
+export function SetIconBadge(arg1, arg2) {
+  return window['go']['main']['App']['SetIconBadge'](arg1, arg2);
+}
+
 export function SetTheme(arg1) {
   return window['go']['main']['App']['SetTheme'](arg1);
+}
+
+export function SwitchView(arg1) {
+  return window['go']['main']['App']['SwitchView'](arg1);
 }
 
 export function WriteFile(arg1, arg2) {

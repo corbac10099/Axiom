@@ -15,28 +15,56 @@
     #titlebar .title-menus { position: absolute; left: 8px; display: flex; gap: 2px; --wails-draggable: no-drag; }
     #titlebar .menu-item { padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 12px; }
     #titlebar .menu-item:hover { background: rgba(255,255,255,0.1); }
+    /* Logo dynamique dans la titlebar */
+    #app-logo { display: flex; align-items: center; gap: 6px; pointer-events: none; }
+    #app-logo-img { width: 16px; height: 16px; object-fit: contain; display: none; }
+    #app-logo-img.visible { display: block; }
+    #app-logo-text { font-size: 12px; color: #ccc; font-weight: 500; }
 
     /* Activity bar */
-    #activity-bar { grid-column: 1; grid-row: 2; background: #333; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; align-items: center; padding-top: 4px; gap: 2px; }
-    .activity-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.6; font-size: 22px; transition: opacity 0.15s; border-left: 2px solid transparent; }
+    #activity-bar { grid-column: 1; grid-row: 2; background: #333; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; align-items: center; padding-top: 4px; gap: 2px; overflow: hidden; }
+    .activity-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.6; font-size: 22px; transition: opacity 0.15s; border-left: 2px solid transparent; flex-shrink: 0; position: relative; }
     .activity-icon:hover { opacity: 1; }
+    .activity-icon:hover::after { content: attr(title); position: absolute; left: 54px; background: #252526; color: #ccc; padding: 3px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; border: 1px solid var(--axiom-border); z-index: 100; pointer-events: none; }
     .activity-icon.active { opacity: 1; border-left-color: var(--axiom-fg-primary); }
+    .activity-icon.module-icon { border-left-color: transparent; }
+    .activity-icon.module-icon.active { border-left-color: var(--axiom-accent); opacity: 1; }
+    /* Badge sur les icônes de modules */
+    .activity-icon .icon-badge { position: absolute; top: 6px; right: 6px; background: var(--axiom-accent); color: #fff; font-size: 9px; border-radius: 8px; padding: 1px 4px; min-width: 14px; text-align: center; line-height: 12px; display: none; }
+    .activity-icon .icon-badge.visible { display: block; }
     #activity-bar .spacer { flex: 1; }
+    #activity-bar-bottom { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 4px; }
 
     /* Sidebar */
-    #sidebar { grid-column: 2; grid-row: 2; background: #252526; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; overflow: hidden; }
-    #sidebar-header { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #bbb; flex-shrink: 0; }
+    #sidebar { grid-column: 2; grid-row: 2; background: #252526; border-right: 1px solid var(--axiom-border); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    #sidebar-header { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #bbb; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+    #sidebar-header-actions { display: flex; gap: 4px; }
     #sidebar-content { flex: 1; overflow-y: auto; }
+    /* Slot d'injection sidebar — les modules peuvent injecter ici */
+    #sidebar-module-slot { flex-shrink: 0; }
     .tree-item { display: flex; align-items: center; padding: 2px 0 2px 12px; cursor: pointer; border-radius: 3px; gap: 5px; font-size: 13px; color: var(--axiom-fg-primary); white-space: nowrap; }
     .tree-item:hover { background: #2a2d2e; }
     .tree-item.active { background: #094771; }
     .tree-item.dir { font-weight: 500; }
     .tree-indent { display: inline-block; width: 16px; flex-shrink: 0; }
 
-    /* Editor area */
-    #editor-area { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; }
+    /* ─── VIEW HOST : conteneur de toutes les vues ─── */
+    #view-host { grid-column: 3; grid-row: 2; display: grid; grid-template-rows: 1fr; overflow: hidden; position: relative; }
+
+    /* Vue de base — éditeur */
+    .app-view { display: none; flex-direction: column; overflow: hidden; background: #1e1e1e; width: 100%; height: 100%; }
+    .app-view.active { display: flex; }
+
+    /* Vue "full-takeover" — prend toute la zone content (colonnes 2+3) */
+    .app-view.takeover { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; }
+    /* Vue "overlay" — flottante par-dessus tout */
+    .app-view.overlay { position: fixed; top: 30px; left: 48px; right: 0; bottom: 22px; z-index: 200; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+
+    /* Éditeur interne */
     #tab-bar { display: flex; background: #2d2d2d; border-bottom: 1px solid var(--axiom-border); overflow-x: auto; flex-shrink: 0; height: 35px; scrollbar-width: none; }
     #tab-bar::-webkit-scrollbar { display: none; }
+    /* Slot d'injection dans la tab bar (droite) */
+    #tab-bar-module-slot { display: flex; align-items: center; margin-left: auto; padding: 0 6px; gap: 4px; flex-shrink: 0; }
     .editor-tab { display: flex; align-items: center; padding: 0 12px; gap: 6px; height: 35px; cursor: pointer; font-size: 13px; border-right: 1px solid var(--axiom-border); white-space: nowrap; background: #2d2d2d; color: #999; transition: background 0.1s; min-width: 100px; }
     .editor-tab:hover { background: #383838; color: #ccc; }
     .editor-tab.active { background: #1e1e1e; color: #ccc; border-top: 1px solid #007acc; }
@@ -56,11 +84,16 @@
     /* Bottom panel */
     #bottom-panel { flex-shrink: 0; height: 200px; border-top: 1px solid var(--axiom-border); background: #1e1e1e; display: none; flex-direction: column; }
     #bottom-panel.visible { display: flex; }
-    #panel-tabs { display: flex; background: #252526; border-bottom: 1px solid var(--axiom-border); flex-shrink: 0; }
-    .panel-tab { padding: 5px 14px; font-size: 12px; cursor: pointer; color: #999; border-bottom: 2px solid transparent; }
+    #panel-tabs { display: flex; background: #252526; border-bottom: 1px solid var(--axiom-border); flex-shrink: 0; overflow-x: auto; }
+    /* Slot d'injection dans les panel tabs */
+    #panel-tabs-module-slot { display: flex; }
+    .panel-tab { padding: 5px 14px; font-size: 12px; cursor: pointer; color: #999; border-bottom: 2px solid transparent; white-space: nowrap; flex-shrink: 0; }
     .panel-tab:hover { color: #ccc; }
     .panel-tab.active { color: #ccc; border-bottom-color: #007acc; }
     #panel-content { flex: 1; overflow: auto; padding: 8px 12px; font-family: var(--axiom-font-mono); font-size: 12px; color: #ccc; }
+    /* Slot de contenu panel injecté */
+    #panel-content-module-slot { display: none; width: 100%; height: 100%; }
+    #panel-content-module-slot.active { display: block; }
     .panel-resize-handle { height: 4px; cursor: ns-resize; background: transparent; flex-shrink: 0; }
     .panel-resize-handle:hover { background: #007acc44; }
 
@@ -68,6 +101,9 @@
     #statusbar { grid-column: 1/-1; grid-row: 3; background: #007acc; display: flex; align-items: center; padding: 0 8px; gap: 12px; font-size: 12px; color: white; }
     .status-item { display: flex; align-items: center; gap: 4px; padding: 0 4px; cursor: pointer; border-radius: 2px; }
     .status-item:hover { background: rgba(255,255,255,0.15); }
+    /* Slot d'injection dans la statusbar (gauche et droite) */
+    #statusbar-left-slot { display: flex; align-items: center; gap: 8px; }
+    #statusbar-right-slot { display: flex; align-items: center; gap: 8px; }
     #statusbar .spacer { flex: 1; }
 
     /* Context menu */
@@ -84,6 +120,7 @@
     .toast.error { border-left-color: #f44747; }
     .toast.success { border-left-color: #4ec9b0; }
     .toast.warning { border-left-color: #dcdcaa; }
+    .toast.module { border-left-color: #9b59b6; }
     @keyframes slide-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
     /* Command palette */
@@ -97,6 +134,15 @@
     .cmd-item .cmd-label { display: flex; align-items: center; gap: 8px; }
     .cmd-item .cmd-key { font-size: 11px; color: #888; font-family: var(--axiom-font-mono); }
 
+    /* Vue module — fermer bouton */
+    .module-view-close { position: absolute; top: 8px; right: 8px; z-index: 10; background: rgba(0,0,0,0.4); border: 1px solid #555; border-radius: 4px; color: #aaa; padding: 4px 8px; cursor: pointer; font-size: 11px; transition: all 0.15s; }
+    .module-view-close:hover { background: #f44747; color: white; border-color: #f44747; }
+
+    /* Transition de vue */
+    .app-view { transition: opacity 0.1s ease; }
+    .app-view.view-entering { animation: view-in 0.15s ease; }
+    @keyframes view-in { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
@@ -106,6 +152,7 @@
 <body>
 
 <div id="app">
+  <!-- ═══════════════════════════════ TITLEBAR ═══════════════════════════════ -->
   <div id="titlebar">
     <div class="title-menus">
       <span class="menu-item">Fichier</span>
@@ -115,22 +162,36 @@
       <span class="menu-item">Exécuter</span>
       <span class="menu-item">Terminal</span>
     </div>
-    <span id="title-text">Axiom IDE</span>
+    <div id="app-logo">
+      <img id="app-logo-img" src="" alt="">
+      <span id="app-logo-text">Axiom IDE</span>
+    </div>
   </div>
 
+  <!-- ═══════════════════════════ ACTIVITY BAR ═══════════════════════════════ -->
   <div id="activity-bar">
+    <!-- Icônes natives -->
     <div class="activity-icon active" data-panel="explorer" title="Explorateur">📁</div>
     <div class="activity-icon" data-panel="search" title="Rechercher">🔍</div>
     <div class="activity-icon" data-panel="scm" title="Source">⑂</div>
     <div class="activity-icon" data-panel="debug" title="Debug">▷</div>
     <div class="activity-icon" data-panel="extensions" title="Extensions">⧉</div>
+    <!-- SLOT : les modules injectent leurs icônes ici -->
+    <div id="activity-bar-module-slot"></div>
     <div class="spacer"></div>
-    <div class="activity-icon" data-panel="ai" title="AI">✦</div>
-    <div class="activity-icon" data-panel="settings" title="Paramètres">⚙</div>
+    <!-- Section basse de l'activity bar -->
+    <div id="activity-bar-bottom">
+      <div class="activity-icon" data-panel="ai" title="AI">✦</div>
+      <div class="activity-icon" data-panel="settings" title="Paramètres">⚙</div>
+    </div>
   </div>
 
+  <!-- ═══════════════════════════════ SIDEBAR ════════════════════════════════ -->
   <div id="sidebar">
-    <div id="sidebar-header">Explorateur</div>
+    <div id="sidebar-header">
+      <span id="sidebar-header-text">Explorateur</span>
+      <div id="sidebar-header-actions"></div>
+    </div>
     <div id="sidebar-content">
       <div class="tree-item dir"><span class="tree-indent"></span><span>▼</span><span>AXIOM</span></div>
       <div class="tree-item" data-file="main.go"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>main.go</span></div>
@@ -140,38 +201,60 @@
       <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>modules/</span></div>
       <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>frontend/</span></div>
     </div>
+    <!-- SLOT : les modules peuvent injecter des sections dans la sidebar -->
+    <div id="sidebar-module-slot"></div>
   </div>
 
-  <div id="editor-area">
-    <div id="tab-bar"></div>
-    <div id="breadcrumb"><span>Axiom</span></div>
-    <div id="editor-content">
-      <div id="welcome">
-        <h1>Axiom IDE</h1>
-        <div class="shortcuts">
-          <span>Ouvrir un fichier</span>   <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
-          <span>Nouveau fichier</span>      <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
-          <span>Palette commandes</span>    <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
-          <span>Terminal</span>             <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
+  <!-- ═════════════════════════ VIEW HOST (zone principale) ═════════════════ -->
+  <div id="view-host">
+
+    <!-- Vue native : éditeur de code -->
+    <div id="view-editor" class="app-view active">
+      <div id="tab-bar">
+        <!-- SLOT : les modules peuvent ajouter des boutons dans la tab bar -->
+        <div id="tab-bar-module-slot"></div>
+      </div>
+      <div id="breadcrumb"><span>Axiom</span></div>
+      <div id="editor-content">
+        <div id="welcome">
+          <h1>Axiom IDE</h1>
+          <div class="shortcuts">
+            <span>Ouvrir un fichier</span>   <span><kbd>Ctrl</kbd>+<kbd>O</kbd></span>
+            <span>Nouveau fichier</span>      <span><kbd>Ctrl</kbd>+<kbd>N</kbd></span>
+            <span>Palette commandes</span>    <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>
+            <span>Terminal</span>             <span><kbd>Ctrl</kbd>+<kbd>`</kbd></span>
+          </div>
         </div>
+        <div id="code-editor"></div>
       </div>
-      <div id="code-editor"></div>
-    </div>
-    <div id="bottom-panel">
-      <div class="panel-resize-handle" id="panel-resize"></div>
-      <div id="panel-tabs">
-        <span class="panel-tab active" data-panel="problems">Problèmes</span>
-        <span class="panel-tab" data-panel="output">Sortie</span>
-        <span class="panel-tab" data-panel="terminal">Terminal</span>
+      <div id="bottom-panel">
+        <div class="panel-resize-handle" id="panel-resize"></div>
+        <div id="panel-tabs">
+          <span class="panel-tab active" data-panel="problems">Problèmes</span>
+          <span class="panel-tab" data-panel="output">Sortie</span>
+          <span class="panel-tab" data-panel="terminal">Terminal</span>
+          <!-- SLOT : les modules ajoutent leurs panels ici -->
+          <div id="panel-tabs-module-slot"></div>
+        </div>
+        <div id="panel-content"></div>
+        <!-- SLOT : contenu panel injecté par un module -->
+        <div id="panel-content-module-slot"></div>
       </div>
-      <div id="panel-content"></div>
     </div>
+
+    <!-- Les vues des modules sont injectées dynamiquement ici par AxiomModuleSystem -->
+
   </div>
 
+  <!-- ═══════════════════════════════ STATUSBAR ══════════════════════════════ -->
   <div id="statusbar">
     <div class="status-item" id="status-branch">⑂ main</div>
+    <!-- SLOT gauche -->
+    <div id="statusbar-left-slot"></div>
     <div class="status-item" id="status-errors">✕ 0  ⚠ 0</div>
     <div class="spacer"></div>
+    <!-- SLOT droite -->
+    <div id="statusbar-right-slot"></div>
     <div class="status-item" id="status-lang">Go</div>
     <div class="status-item" id="status-cursor">Ln 1, Col 1</div>
     <div class="status-item" id="status-encoding">UTF-8</div>
@@ -179,6 +262,7 @@
   </div>
 </div>
 
+<!-- Éléments globaux -->
 <div id="command-palette">
   <div id="command-palette-box">
     <input id="command-input" type="text" placeholder="> Taper une commande..." autocomplete="off">
@@ -192,14 +276,384 @@
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// AxiomModuleSystem — Système de vues et slots dynamiques pour modules
+// ═══════════════════════════════════════════════════════════════════════════
+
+var AxiomModuleSystem = (function() {
+
+  // Registre des modules actifs
+  // { moduleId: { icon, title, viewId, viewType, scriptInitialized, panelTabId } }
+  var registry = {};
+
+  // Vue actuellement active avant un takeover/overlay (pour restauration)
+  var previousActiveView = 'editor';
+  var currentActiveView  = 'editor';
+
+  // ── Utilitaires DOM ────────────────────────────────────────────────────
+
+  function _el(id) { return document.getElementById(id); }
+
+  function _createEl(tag, attrs, html) {
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function(k) {
+      if (k === 'class') el.className = attrs[k];
+      else el.setAttribute(k, attrs[k]);
+    });
+    if (html !== undefined) el.innerHTML = html;
+    return el;
+  }
+
+  // Injecte un <style> scopé dans le <head>
+  function _injectCSS(moduleId, css) {
+    var existing = document.getElementById('style-module-' + moduleId);
+    if (existing) existing.remove();
+    var style = _createEl('style', { id: 'style-module-' + moduleId });
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  // Injecte un <script> dans le <head> (exécuté une seule fois)
+  function _injectScript(moduleId, js) {
+    var existing = document.getElementById('script-module-' + moduleId);
+    if (existing) return; // déjà injecté
+    var script = _createEl('script', { id: 'script-module-' + moduleId });
+    // Wrapping dans une IIFE avec moduleId accessible
+    script.textContent = '(function(moduleId) {\n' + js + '\n})(' + JSON.stringify(moduleId) + ');';
+    document.head.appendChild(script);
+  }
+
+  // ── Système de vues ────────────────────────────────────────────────────
+
+  /**
+   * switchView(viewId)
+   * Active une vue dans le #view-host.
+   * viewId = 'editor' | moduleId d'un module enregistré
+   */
+  function switchView(viewId) {
+    var targetId = viewId === 'editor' ? 'view-editor' : 'view-' + viewId;
+    var target = _el(targetId);
+    if (!target) {
+      console.warn('[AxiomModuleSystem] View not found:', viewId);
+      return false;
+    }
+
+    // Désactiver toutes les vues non-overlay
+    document.querySelectorAll('#view-host .app-view:not(.overlay)').forEach(function(v) {
+      v.classList.remove('active');
+    });
+
+    // Activer la cible
+    target.classList.add('active');
+    target.classList.add('view-entering');
+    setTimeout(function() { target.classList.remove('view-entering'); }, 200);
+
+    previousActiveView = currentActiveView;
+    currentActiveView = viewId;
+
+    // Sync icônes activity bar
+    document.querySelectorAll('.activity-icon').forEach(function(i) {
+      i.classList.remove('active');
+    });
+    var matchingIcon = document.querySelector('.activity-icon[data-panel="' + viewId + '"]');
+    if (matchingIcon) matchingIcon.classList.add('active');
+
+    // Sync sidebar header si le module a un titre
+    if (registry[viewId]) {
+      _el('sidebar-header-text').textContent = registry[viewId].title || viewId;
+    } else if (viewId === 'editor') {
+      _el('sidebar-header-text').textContent = 'Explorateur';
+    }
+
+    return true;
+  }
+
+  /**
+   * closeView(viewId)
+   * Ferme une vue module et revient à la précédente.
+   */
+  function closeView(viewId) {
+    var target = _el('view-' + viewId);
+    if (!target) return;
+
+    // Si c'est un overlay, on le retire du DOM
+    if (target.classList.contains('overlay')) {
+      target.classList.remove('active');
+      setTimeout(function() { target.remove(); }, 200);
+      // Réactiver la vue précédente
+      switchView(previousActiveView);
+      return;
+    }
+
+    // Sinon on revient à l'éditeur
+    switchView(previousActiveView === viewId ? 'editor' : previousActiveView);
+  }
+
+  // ── Enregistrement de module ────────────────────────────────────────────
+
+  /**
+   * registerModule(config)
+   *
+   * config = {
+   *   moduleId:     string           — identifiant unique (= module ID Go)
+   *   icon:         string           — emoji ou texte court pour l'icône
+   *   iconImageUrl: string?          — URL d'image pour l'icône (optionnel)
+   *   title:        string           — titre affiché dans la sidebar header
+   *   viewType:     'replace'|'takeover'|'overlay'|'none'
+   *                 replace   = vue normale dans #view-host (remplace l'éditeur)
+   *                 takeover  = position:absolute par-dessus tout le content
+   *                 overlay   = modale semi-transparente par-dessus tout
+   *                 none      = pas de vue (juste des slots)
+   *   html:         string?          — contenu HTML de la vue
+   *   css:          string?          — CSS scopé injecté dans <head>
+   *   js:           string?          — JS injecté dans <head> (IIFE, moduleId disponible)
+   *   autoActivate: bool?            — switcher vers cette vue dès l'enregistrement
+   *   showInActivityBar: bool?       — ajouter une icône dans l'activity bar (défaut true)
+   *   position:     'top'|'bottom'?  — position dans l'activity bar (défaut 'top')
+   *   closeable:    bool?            — afficher un bouton fermer sur la vue
+   * }
+   */
+  function registerModule(config) {
+    if (!config || !config.moduleId) {
+      console.error('[AxiomModuleSystem] registerModule: moduleId required');
+      return;
+    }
+    var id = config.moduleId;
+    registry[id] = config;
+
+    // 1. Injecter le CSS
+    if (config.css) _injectCSS(id, config.css);
+
+    // 2. Créer la vue dans #view-host (si viewType != 'none')
+    if (config.viewType && config.viewType !== 'none' && config.html !== undefined) {
+      var existingView = _el('view-' + id);
+      if (existingView) existingView.remove();
+
+      var viewEl = _createEl('div', {
+        id: 'view-' + id,
+        class: 'app-view' + (config.viewType === 'takeover' ? ' takeover' : '') + (config.viewType === 'overlay' ? ' overlay' : '')
+      }, config.html);
+
+      // Bouton fermer si closeable
+      if (config.closeable !== false) {
+        var closeBtn = _createEl('button', { class: 'module-view-close' }, '✕ Fermer');
+        closeBtn.addEventListener('click', function() { closeView(id); });
+        viewEl.insertBefore(closeBtn, viewEl.firstChild);
+      }
+
+      _el('view-host').appendChild(viewEl);
+    }
+
+    // 3. Injecter l'icône dans l'activity bar
+    var showIcon = config.showInActivityBar !== false;
+    if (showIcon) {
+      var existingIcon = document.querySelector('.activity-icon[data-panel="' + id + '"]');
+      if (existingIcon) existingIcon.remove();
+
+      var iconEl = _createEl('div', {
+        class: 'activity-icon module-icon',
+        'data-panel': id,
+        title: config.title || id
+      });
+
+      if (config.iconImageUrl) {
+        var img = _createEl('img', { src: config.iconImageUrl, style: 'width:24px;height:24px;object-fit:contain;border-radius:4px;' });
+        iconEl.appendChild(img);
+      } else {
+        iconEl.textContent = config.icon || '⬡';
+      }
+
+      // Badge
+      var badge = _createEl('span', { class: 'icon-badge' }, '');
+      iconEl.appendChild(badge);
+
+      iconEl.addEventListener('click', function() {
+        if (config.viewType && config.viewType !== 'none') {
+          switchView(id);
+        }
+        // Déclencher un event custom pour que le module puisse réagir
+        document.dispatchEvent(new CustomEvent('axiom:module-icon-click', { detail: { moduleId: id } }));
+      });
+
+      var slot = config.position === 'bottom'
+        ? _el('activity-bar-bottom')
+        : _el('activity-bar-module-slot');
+      slot.appendChild(iconEl);
+    }
+
+    // 4. Injecter le JS (après que le DOM est prêt)
+    if (config.js) {
+      setTimeout(function() { _injectScript(id, config.js); }, 0);
+    }
+
+    // 5. Auto-activer
+    if (config.autoActivate && config.viewType && config.viewType !== 'none') {
+      setTimeout(function() { switchView(id); }, 50);
+    }
+
+    console.log('[AxiomModuleSystem] Module registered:', id, '| viewType:', config.viewType || 'none');
+    return id;
+  }
+
+  // ── Slots d'injection ──────────────────────────────────────────────────
+
+  /**
+   * injectSlot(slot, html, opts)
+   *
+   * slot: 'sidebar'|'sidebar-header-actions'|'statusbar-left'|'statusbar-right'|
+   *       'tab-bar'|'panel-tab'|'panel-content'|'activity-bar-bottom'|'custom:SELECTOR'
+   * opts: { moduleId, id, replace, css, js }
+   */
+  function injectSlot(slot, html, opts) {
+    opts = opts || {};
+    var mid = opts.moduleId || 'anonymous';
+    var elId = opts.id || 'slot-' + mid + '-' + slot.replace(/[^a-z0-9]/g, '-');
+
+    var slotMap = {
+      'sidebar':                  'sidebar-module-slot',
+      'sidebar-header-actions':   'sidebar-header-actions',
+      'statusbar-left':           'statusbar-left-slot',
+      'statusbar-right':          'statusbar-right-slot',
+      'tab-bar':                  'tab-bar-module-slot',
+      'panel-tab':                'panel-tabs-module-slot',
+      'activity-bar-bottom':      'activity-bar-bottom',
+    };
+
+    var targetEl;
+    if (slot === 'panel-content') {
+      // Cas spécial : remplace le contenu du panel
+      var slotEl = _el('panel-content-module-slot');
+      slotEl.innerHTML = html;
+      slotEl.id = elId;
+      slotEl.classList.add('active');
+      _el('panel-content').style.display = 'none';
+      // Ouvrir le bottom panel
+      _el('bottom-panel').classList.add('visible');
+    } else {
+      var targetId = slotMap[slot];
+      if (!targetId && slot.startsWith('custom:')) {
+        targetEl = document.querySelector(slot.replace('custom:', ''));
+      } else {
+        targetEl = _el(targetId);
+      }
+
+      if (!targetEl) {
+        console.warn('[AxiomModuleSystem] Slot not found:', slot);
+        return;
+      }
+
+      // Retirer l'élément existant si opts.replace
+      if (opts.replace) {
+        var old = _el(elId);
+        if (old) old.remove();
+      }
+
+      var wrapper = _createEl('div', { id: elId, 'data-module': mid }, html);
+      targetEl.appendChild(wrapper);
+    }
+
+    if (opts.css) _injectCSS(mid + '-slot-' + slot, opts.css);
+    if (opts.js) setTimeout(function() { _injectScript(mid + '-slot-' + slot, opts.js); }, 0);
+
+    return elId;
+  }
+
+  /**
+   * removeSlot(elId) — retire un élément injecté par son ID
+   */
+  function removeSlot(elId) {
+    var el = _el(elId);
+    if (el) el.remove();
+  }
+
+  // ── Logo & branding ────────────────────────────────────────────────────
+
+  /**
+   * setAppLogo(opts)
+   * opts: { imageUrl?, text?, titlebarColor? }
+   */
+  function setAppLogo(opts) {
+    opts = opts || {};
+    if (opts.imageUrl) {
+      var img = _el('app-logo-img');
+      img.src = opts.imageUrl;
+      img.classList.add('visible');
+    }
+    if (opts.text !== undefined) {
+      _el('app-logo-text').textContent = opts.text;
+    }
+    if (opts.titlebarColor) {
+      _el('titlebar').style.background = opts.titlebarColor;
+    }
+    if (opts.statusbarColor) {
+      _el('statusbar').style.background = opts.statusbarColor;
+    }
+  }
+
+  // ── Badge sur icône ────────────────────────────────────────────────────
+
+  function setIconBadge(moduleId, text) {
+    var icon = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]');
+    if (!icon) return;
+    var badge = icon.querySelector('.icon-badge');
+    if (!badge) return;
+    if (text === null || text === '' || text === 0) {
+      badge.classList.remove('visible');
+      badge.textContent = '';
+    } else {
+      badge.textContent = String(text);
+      badge.classList.add('visible');
+    }
+  }
+
+  // ── Désenregistrement ──────────────────────────────────────────────────
+
+  function unregisterModule(moduleId) {
+    // Retirer la vue
+    var view = _el('view-' + moduleId);
+    if (view) view.remove();
+    // Retirer l'icône
+    var icon = document.querySelector('.activity-icon[data-panel="' + moduleId + '"]');
+    if (icon) icon.remove();
+    // Retirer les styles
+    var style = _el('style-module-' + moduleId);
+    if (style) style.remove();
+    // Revenir à l'éditeur si c'était la vue active
+    if (currentActiveView === moduleId) switchView('editor');
+    delete registry[moduleId];
+    console.log('[AxiomModuleSystem] Module unregistered:', moduleId);
+  }
+
+  // ── API publique ───────────────────────────────────────────────────────
+
+  return {
+    registerModule:    registerModule,
+    unregisterModule:  unregisterModule,
+    switchView:        switchView,
+    closeView:         closeView,
+    injectSlot:        injectSlot,
+    removeSlot:        removeSlot,
+    setAppLogo:        setAppLogo,
+    setIconBadge:      setIconBadge,
+    getRegistry:       function() { return registry; },
+    getCurrentView:    function() { return currentActiveView; },
+    getPreviousView:   function() { return previousActiveView; },
+  };
+
+})();
+
+// Exposer globalement
+window.AxiomModules = AxiomModuleSystem;
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 var state = { openTabs: [], activeTab: null, bottomVisible: false };
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 function toast(msg, type, ms) {
   var el = document.createElement('div');
   el.className = 'toast ' + (type || 'info');
@@ -213,15 +667,19 @@ function langIcon(p) { return ({go:'🐹',js:'📜',ts:'📘',json:'📋',md:'�
 function langName(p) { return ({go:'Go',js:'JavaScript',ts:'TypeScript',json:'JSON',md:'Markdown',html:'HTML',css:'CSS',rs:'Rust',py:'Python'})[ext(p)] || 'Texte'; }
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // TABS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 function openTab(path, content) {
   var ex = state.openTabs.find(function(t) { return t.path === path; });
   if (ex) { activateTab(ex.id); return; }
   var id = 'tab-' + Date.now();
   var parts = path.split(/[/\\]/);
   state.openTabs.push({ id: id, path: path, title: parts[parts.length - 1], dirty: false, language: langName(path), content: content || '' });
+  // Si on n'est pas sur la vue éditeur, y revenir
+  if (AxiomModuleSystem.getCurrentView() !== 'editor') {
+    AxiomModuleSystem.switchView('editor');
+  }
   activateTab(id);
 }
 
@@ -236,13 +694,18 @@ function closeTab(id) {
 function activateTab(id) { state.activeTab = id; renderTabs(); renderEditor(); }
 
 function renderTabs() {
-  var bar = document.getElementById('tab-bar'); bar.innerHTML = '';
+  var bar = document.getElementById('tab-bar');
+  // Vider sauf le slot module
+  var slot = document.getElementById('tab-bar-module-slot');
+  bar.innerHTML = '';
+  bar.appendChild(slot);
+
   state.openTabs.forEach(function(tab) {
     var el = document.createElement('div');
     el.className = 'editor-tab' + (tab.id === state.activeTab ? ' active' : '') + (tab.dirty ? ' dirty' : '');
     el.innerHTML = '<span>' + langIcon(tab.path) + ' ' + tab.title + '</span><span class="tab-close" data-close="' + tab.id + '">✕</span>';
     el.addEventListener('click', function(e) { if (e.target.dataset.close) { closeTab(e.target.dataset.close); return; } activateTab(tab.id); });
-    bar.appendChild(el);
+    bar.insertBefore(el, slot);
   });
 }
 
@@ -258,23 +721,41 @@ function renderEditor() {
   c.innerHTML = '<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">' + escHtml(tab.content || '') + '</pre>';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// UI INTERACTIONS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTIVITY BAR — gestion des clics (native + modules)
+// ═══════════════════════════════════════════════════════════════════════════
 document.getElementById('activity-bar').addEventListener('click', function(e) {
-  var icon = e.target.closest('.activity-icon'); if (!icon) return;
+  var icon = e.target.closest('.activity-icon');
+  if (!icon) return;
+  var panel = icon.dataset.panel;
+  if (!panel) return;
+
+  // Modules enregistrés → déléguer à AxiomModuleSystem
+  var reg = AxiomModuleSystem.getRegistry();
+  if (reg[panel]) {
+    AxiomModuleSystem.switchView(panel);
+    return;
+  }
+
+  // Icônes natives
   document.querySelectorAll('.activity-icon').forEach(function(i) { i.classList.remove('active'); });
   icon.classList.add('active');
-  document.getElementById('sidebar-header').textContent = (icon.dataset.panel || '').toUpperCase();
+  document.getElementById('sidebar-header-text').textContent = (panel || '').toUpperCase();
+
+  // Retour à l'éditeur si on clique sur un panel natif depuis une vue module
+  if (panel === 'explorer' || panel === 'search' || panel === 'scm' || panel === 'debug' || panel === 'extensions') {
+    if (AxiomModuleSystem.getCurrentView() !== 'editor') {
+      AxiomModuleSystem.switchView('editor');
+    }
+  }
 });
 
-// File tree clicks — tries Go binding first, falls back to stub
+// File tree clicks
 document.getElementById('sidebar-content').addEventListener('click', function(e) {
   var item = e.target.closest('.tree-item'); if (!item || item.classList.contains('dir')) return;
   var file = item.dataset.file || item.querySelector('span:last-child').textContent;
   document.querySelectorAll('.tree-item').forEach(function(i) { i.classList.remove('active'); });
   item.classList.add('active');
-  // window.go.main.App is the Wails v2 bound namespace
   if (window.go && window.go.main && window.go.main.App) {
     window.go.main.App.ReadFile(file)
       .then(function(content) { openTab(file, content); })
@@ -284,12 +765,15 @@ document.getElementById('sidebar-content').addEventListener('click', function(e)
   }
 });
 
-// Bottom panel tabs
+// Bottom panel tabs (natifs)
 document.querySelectorAll('.panel-tab').forEach(function(t) {
   t.addEventListener('click', function() {
     document.querySelectorAll('.panel-tab').forEach(function(x) { x.classList.remove('active'); });
     t.classList.add('active'); state.bottomVisible = true;
     document.getElementById('bottom-panel').classList.add('visible');
+    // Restaurer le panel content natif si un module l'avait pris
+    document.getElementById('panel-content').style.display = '';
+    document.getElementById('panel-content-module-slot').classList.remove('active');
   });
 });
 
@@ -301,18 +785,20 @@ document.querySelectorAll('.panel-tab').forEach(function(t) {
   document.addEventListener('mouseup', function() { drag = false; document.body.style.cursor = ''; });
 })();
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // COMMAND PALETTE
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 var COMMANDS = [
-  { label: 'Nouveau fichier', key: 'Ctrl+N', action: function() { toast('Nouveau fichier — TODO', 'info'); } },
-  { label: 'Sauvegarder', key: 'Ctrl+S', action: function() { axiomSave(); } },
-  { label: "Fermer l'onglet", key: 'Ctrl+W', action: function() { if (state.activeTab) closeTab(state.activeTab); } },
-  { label: 'Terminal', key: 'Ctrl+`', action: function() { togglePanel(); } },
-  { label: 'Sidebar', key: 'Ctrl+B', action: function() { toggleSidebar(); } },
-  { label: 'Thème sombre', key: '', action: function() { axiomGoSetTheme('dark'); } },
-  { label: 'Thème clair', key: '', action: function() { axiomGoSetTheme('light'); } },
-  { label: 'Sauvegarder workspace', key: '', action: function() { axiomGoSaveWorkspace(); } },
+  { label: 'Nouveau fichier',        key: 'Ctrl+N',         action: function() { toast('Nouveau fichier — TODO', 'info'); } },
+  { label: 'Sauvegarder',            key: 'Ctrl+S',         action: function() { axiomSave(); } },
+  { label: "Fermer l'onglet",        key: 'Ctrl+W',         action: function() { if (state.activeTab) closeTab(state.activeTab); } },
+  { label: 'Terminal',               key: 'Ctrl+`',         action: function() { togglePanel(); } },
+  { label: 'Sidebar',                key: 'Ctrl+B',         action: function() { toggleSidebar(); } },
+  { label: 'Thème sombre',           key: '',               action: function() { axiomGoSetTheme('dark'); } },
+  { label: 'Thème clair',            key: '',               action: function() { axiomGoSetTheme('light'); } },
+  { label: 'Sauvegarder workspace',  key: '',               action: function() { axiomGoSaveWorkspace(); } },
+  { label: 'Vue éditeur',            key: 'Ctrl+1',         action: function() { AxiomModuleSystem.switchView('editor'); } },
+  { label: 'Liste des modules',      key: '',               action: function() { var r = AxiomModuleSystem.getRegistry(); toast('Modules: ' + Object.keys(r).join(', ') || 'aucun', 'info', 4000); } },
 ];
 var cmdSel = 0;
 
@@ -322,11 +808,13 @@ function openCommandPalette() {
 }
 function closeCommandPalette() { document.getElementById('command-palette').classList.remove('visible'); }
 function renderCmds(f) {
-  var list = COMMANDS.filter(function(c) { return c.label.toLowerCase().includes(f.toLowerCase()); });
+  // Merge avec les commandes des modules
+  var allCmds = COMMANDS.concat(window._moduleCommands || []);
+  var list = allCmds.filter(function(c) { return c.label.toLowerCase().includes(f.toLowerCase()); });
   var ct = document.getElementById('command-results'); ct.innerHTML = '';
   list.forEach(function(cmd, i) {
     var el = document.createElement('div'); el.className = 'cmd-item' + (i === cmdSel ? ' selected' : '');
-    el.innerHTML = '<span class="cmd-label">⚡ ' + cmd.label + '</span><span class="cmd-key">' + cmd.key + '</span>';
+    el.innerHTML = '<span class="cmd-label">⚡ ' + cmd.label + '</span><span class="cmd-key">' + (cmd.key || '') + '</span>';
     el.addEventListener('click', function() { cmd.action(); closeCommandPalette(); });
     ct.appendChild(el);
   });
@@ -341,6 +829,12 @@ document.getElementById('command-input').addEventListener('keydown', function(e)
 });
 document.getElementById('command-palette').addEventListener('click', function(e) { if (e.target === document.getElementById('command-palette')) closeCommandPalette(); });
 
+// API publique pour que les modules ajoutent des commandes
+window._moduleCommands = [];
+window.axiomRegisterCommand = function(label, action, key) {
+  window._moduleCommands.push({ label: label, action: action, key: key || '' });
+};
+
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
   var c = e.ctrlKey || e.metaKey;
@@ -349,7 +843,14 @@ document.addEventListener('keydown', function(e) {
   if (c && e.key === 'w') { e.preventDefault(); if (state.activeTab) closeTab(state.activeTab); return; }
   if (c && e.key === 'b') { e.preventDefault(); toggleSidebar(); return; }
   if (c && e.key === '`') { e.preventDefault(); togglePanel(); return; }
-  if (e.key === 'Escape') { closeCommandPalette(); document.getElementById('context-menu').classList.remove('visible'); }
+  if (c && e.key === '1') { e.preventDefault(); AxiomModuleSystem.switchView('editor'); return; }
+  if (e.key === 'Escape') {
+    closeCommandPalette();
+    document.getElementById('context-menu').classList.remove('visible');
+    // Fermer l'overlay actif si présent
+    var activeOverlay = document.querySelector('.app-view.overlay.active');
+    if (activeOverlay) { AxiomModuleSystem.closeView(activeOverlay.id.replace('view-', '')); }
+  }
 });
 
 function toggleSidebar() {
@@ -373,11 +874,9 @@ document.addEventListener('contextmenu', function(e) {
 });
 document.addEventListener('click', function() { document.getElementById('context-menu').classList.remove('visible'); });
 
-// ═══════════════════════════════════════════════════════════════
-// GO BINDING HELPERS  (window.go.main.App.*)
-// These wrap the Wails v2 bound methods with error handling.
-// ═══════════════════════════════════════════════════════════════
-
+// ═══════════════════════════════════════════════════════════════════════════
+// GO BINDING HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
 function goApp() {
   return window.go && window.go.main && window.go.main.App ? window.go.main.App : null;
 }
@@ -394,11 +893,9 @@ function axiomSave() {
 }
 
 function axiomGoSetTheme(themeID) {
-  axiomSetTheme(themeID); // local CSS change
+  axiomSetTheme(themeID);
   var app = goApp();
-  if (app) {
-    app.SetTheme(themeID).catch(function(e) { console.warn('SetTheme:', e); });
-  }
+  if (app) { app.SetTheme(themeID).catch(function(e) { console.warn('SetTheme:', e); }); }
 }
 
 function axiomGoSaveWorkspace() {
@@ -410,23 +907,19 @@ function axiomGoSaveWorkspace() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// WAILS v2 BRIDGE
-// Waits for window.runtime (injected by Wails after load).
-// Go → JS : runtime.EventsOn("axiom:event", cb)
-// JS → Go : runtime.EventsEmit("axiom:input", data)
-// Bound  : window.go.main.App.MethodName(args) → Promise
-// ═══════════════════════════════════════════════════════════════
-
+// ═══════════════════════════════════════════════════════════════════════════
+// WAILS v2 BRIDGE — Go → JS via axiom:event
+// ═══════════════════════════════════════════════════════════════════════════
 function initWailsBridge() {
   console.log('[Axiom] Wails v2 bridge initializing…');
 
-  // ── Go → JS: engine events pushed by the backend ──────────────
   window.runtime.EventsOn('axiom:event', function(ev) {
     if (!ev || !ev.topic) return;
     console.log('[Axiom] Go→JS:', ev.topic, ev.payload || '');
 
     switch (ev.topic) {
+
+      // ── Topics natifs ─────────────────────────────────────────────
       case 'file.opened':
         if (ev.payload && ev.payload.path) {
           openTab(ev.payload.path, ev.payload.content || '');
@@ -451,19 +944,58 @@ function initWailsBridge() {
         break;
 
       case 'system.module.loaded':
-        if (ev.payload) {
-          console.log('[Axiom] Module loaded:', ev.payload.module_id);
-        }
+        if (ev.payload) console.log('[Axiom] Module loaded:', ev.payload.module_id);
         break;
 
       case 'security.denied':
         console.warn('[Axiom] Security denied:', ev.payload);
         break;
+
+      // ── Topics module UI ──────────────────────────────────────────
+      // Envoyés depuis Go via engine.Dispatch("my-module", api.TopicUIOpenPanel, ...)
+      // Le payload étendu est passé dans le champ Content (JSON stringifié)
+
+      case 'ui.panel.open':
+        _handleModulePanelOpen(ev.payload);
+        break;
+
+      case 'ui.panel.close':
+        if (ev.payload && ev.payload.panel_id) {
+          AxiomModuleSystem.unregisterModule(ev.payload.panel_id);
+        }
+        break;
+
+      // Topic custom : ui.module.register
+      // Permet d'enregistrer un module complet depuis Go
+      case 'ui.module.register':
+        _handleModuleRegister(ev.payload);
+        break;
+
+      // Topic custom : ui.slot.inject
+      case 'ui.slot.inject':
+        _handleSlotInject(ev.payload);
+        break;
+
+      // Topic custom : ui.app.branding
+      case 'ui.app.branding':
+        _handleAppBranding(ev.payload);
+        break;
+
+      // Topic custom : ui.icon.badge
+      case 'ui.icon.badge':
+        if (ev.payload && ev.payload.module_id !== undefined) {
+          AxiomModuleSystem.setIconBadge(ev.payload.module_id, ev.payload.count);
+        }
+        break;
+
+      default:
+        // Dispatcher aux listeners de modules enregistrés
+        document.dispatchEvent(new CustomEvent('axiom:bus-event', { detail: ev }));
+        break;
     }
   });
 
-  // ── JS → Go: emit user input events ──────────────────────────
-  // Override global axiomEmit to route through the Wails event bridge
+  // JS → Go
   window.axiomEmit = function(eventType, data) {
     window.runtime.EventsEmit('axiom:input', {
       window_id: 'main',
@@ -472,17 +1004,75 @@ function initWailsBridge() {
     });
   };
 
-  // ── Mark engine as connected ──────────────────────────────────
   document.getElementById('status-engine').textContent = '✓ Engine';
   toast('Axiom IDE prêt', 'success', 1500);
-
   console.log('[Axiom] Wails v2 bridge ready');
 }
 
-// Poll for window.runtime (Wails injects it asynchronously after the WebView loads)
+// ── Handlers de topics module ────────────────────────────────────────────
+
+function _handleModulePanelOpen(payload) {
+  if (!payload || !payload.panel_id) return;
+
+  // Parser le contenu étendu (JSON dans Content)
+  var extended = {};
+  if (payload.content) {
+    try { extended = JSON.parse(payload.content); } catch(e) { /* content est du HTML brut */ }
+  }
+
+  var moduleId = payload.panel_id;
+
+  // Si content n'est pas du JSON, c'est du HTML direct
+  var html = (typeof extended === 'object' && extended.html) ? extended.html : (payload.content || '');
+
+  AxiomModuleSystem.registerModule({
+    moduleId:          moduleId,
+    icon:              extended.icon || payload.icon || '⬡',
+    iconImageUrl:      extended.iconImageUrl || null,
+    title:             payload.title || moduleId,
+    viewType:          extended.viewType || 'replace',
+    html:              html,
+    css:               extended.css  || '',
+    js:                extended.js   || '',
+    autoActivate:      extended.autoActivate !== false,
+    showInActivityBar: extended.showInActivityBar !== false,
+    position:          extended.position || 'top',
+    closeable:         extended.closeable !== false,
+  });
+
+  toast('Module "' + (payload.title || moduleId) + '" chargé', 'module', 2000);
+}
+
+function _handleModuleRegister(payload) {
+  if (!payload || !payload.moduleId) return;
+  AxiomModuleSystem.registerModule(payload);
+  toast('Module "' + (payload.title || payload.moduleId) + '" enregistré', 'module', 2000);
+}
+
+function _handleSlotInject(payload) {
+  if (!payload || !payload.slot) return;
+  AxiomModuleSystem.injectSlot(payload.slot, payload.html || '', {
+    moduleId: payload.moduleId,
+    id:       payload.id,
+    replace:  payload.replace,
+    css:      payload.css,
+    js:       payload.js,
+  });
+}
+
+function _handleAppBranding(payload) {
+  if (!payload) return;
+  AxiomModuleSystem.setAppLogo({
+    imageUrl:       payload.logo_url,
+    text:           payload.app_name,
+    titlebarColor:  payload.titlebar_color,
+    statusbarColor: payload.statusbar_color,
+  });
+}
+
+// Poll window.runtime
 window.addEventListener('load', function() {
-  var attempts = 0;
-  var maxAttempts = 50; // 5 seconds
+  var attempts = 0, maxAttempts = 50;
   var interval = setInterval(function() {
     attempts++;
     if (window.runtime) {
@@ -496,12 +1086,12 @@ window.addEventListener('load', function() {
   }, 100);
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 renderTabs();
 renderEditor();
-console.log('[Axiom IDE] Frontend ready');
+console.log('[Axiom IDE] Frontend ready — AxiomModuleSystem active');
 </script>
 </body>
 </html>

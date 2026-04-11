@@ -46,11 +46,9 @@ func NewApp() *App {
 // ─── Lifecycle ────────────────────────────────────────────────────
 
 // OnStartup is called by Wails after the window is created.
-// ctx is the Wails context — required for runtime.EventsEmit/On.
 func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Wails calls the binary briefly to generate JS bindings — skip full init.
 	if isBindingsGeneration() {
 		a.logger.Info("axiom: bindings generation mode, skipping engine init")
 		return
@@ -89,7 +87,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	}
 	a.fsHdlr = fsHdlr
 
-	// ── Orchestrator (noop — no native window adapter needed for Wails) ──
+	// ── Orchestrator ────────────────────────────────────────────────
 	_ = orchestrator.NewOrchestrator(nil, eng.Bus(), a.logger)
 
 	// ── Tab Manager ─────────────────────────────────────────────────
@@ -132,7 +130,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	// ── Go → JS bridge ──────────────────────────────────────────────
 	a.setupGoToJSBridge()
 
-	// ── JS → Go bridge (events from frontend) ───────────────────────
+	// ── JS → Go bridge ──────────────────────────────────────────────
 	runtime.EventsOn(ctx, "axiom:input", func(data ...interface{}) {
 		a.handleJSEvent(data...)
 	})
@@ -160,8 +158,8 @@ func (a *App) OnShutdown(_ context.Context) {
 
 // setupGoToJSBridge subscribes to internal topics and pushes them to the frontend.
 func (a *App) setupGoToJSBridge() {
-	// Topics that the frontend needs to react to
-	pushTopics := []api.Topic{
+	// Topics natifs existants
+	nativeTopics := []api.Topic{
 		api.TopicUISetTheme,
 		api.TopicUIOpenPanel,
 		api.TopicUIClosePanel,
@@ -173,13 +171,24 @@ func (a *App) setupGoToJSBridge() {
 		api.TopicSecurityDenied,
 	}
 
-	for _, topic := range pushTopics {
+	// Nouveaux topics Module System
+	moduleUITopics := []api.Topic{
+		api.TopicUIModuleRegister,
+		api.TopicUISlotInject,
+		api.TopicUISlotRemove,
+		api.TopicUIAppBranding,
+		api.TopicUIIconBadge,
+		api.TopicUIViewSwitch,
+	}
+
+	allTopics := append(nativeTopics, moduleUITopics...)
+
+	for _, topic := range allTopics {
 		t := topic
 		a.eng.Subscribe(t, func(ev api.Event) {
 			if a.ctx == nil {
 				return
 			}
-			// Serialize payload to a JSON-safe map
 			payloadJSON, _ := json.Marshal(ev.Payload)
 			var payloadMap interface{}
 			_ = json.Unmarshal(payloadJSON, &payloadMap)
@@ -195,7 +204,7 @@ func (a *App) setupGoToJSBridge() {
 	}
 
 	a.logger.Info("axiom: Go→JS bridge active",
-		slog.Int("topics", len(pushTopics)),
+		slog.Int("topics", len(allTopics)),
 	)
 }
 
@@ -298,8 +307,6 @@ func (a *App) GetConfig() map[string]interface{} {
 }
 
 // EmitEvent lets the frontend dispatch a typed event through the engine.
-// topicStr must be a known topic (see api/events.go).
-// payloadJSON is optional JSON-encoded payload.
 func (a *App) EmitEvent(topicStr, payloadJSON string) error {
 	if a.eng == nil {
 		return fmt.Errorf("engine not ready")
@@ -313,9 +320,92 @@ func (a *App) EmitEvent(topicStr, payloadJSON string) error {
 	return a.eng.Dispatch("engine", api.Topic(topicStr), payload)
 }
 
+// RegisterModuleUI enregistre une vue module depuis Go en une seule méthode.
+// C'est le raccourci direct sans passer par le bus.
+// moduleJSON doit être un PayloadUIModuleRegister sérialisé.
+func (a *App) RegisterModuleUI(moduleJSON string) error {
+	if a.ctx == nil {
+		return fmt.Errorf("context not ready")
+	}
+	var payload api.PayloadUIModuleRegister
+	if err := json.Unmarshal([]byte(moduleJSON), &payload); err != nil {
+		return fmt.Errorf("invalid module JSON: %w", err)
+	}
+
+	payloadMap := make(map[string]interface{})
+	data, _ := json.Marshal(payload)
+	_ = json.Unmarshal(data, &payloadMap)
+
+	runtime.EventsEmit(a.ctx, "axiom:event", map[string]interface{}{
+		"topic":   "ui.module.register",
+		"source":  "app",
+		"payload": payloadMap,
+	})
+	return nil
+}
+
+// InjectSlot injecte du HTML dans un slot de l'interface.
+func (a *App) InjectSlot(slotName, moduleID, elementID, html, css, js string, replace bool) error {
+	if a.ctx == nil {
+		return fmt.Errorf("context not ready")
+	}
+	runtime.EventsEmit(a.ctx, "axiom:event", map[string]interface{}{
+		"topic":  "ui.slot.inject",
+		"source": "app",
+		"payload": map[string]interface{}{
+			"slot":     slotName,
+			"moduleId": moduleID,
+			"id":       elementID,
+			"html":     html,
+			"css":      css,
+			"js":       js,
+			"replace":  replace,
+		},
+	})
+	return nil
+}
+
+// SetAppBranding modifie le logo et les couleurs de l'application.
+func (a *App) SetAppBranding(logoURL, appName, titlebarColor, statusbarColor string) error {
+	if a.eng == nil {
+		return fmt.Errorf("engine not ready")
+	}
+	return a.eng.Dispatch("engine", api.TopicUIAppBranding, api.PayloadUIAppBranding{
+		LogoURL:        logoURL,
+		AppName:        appName,
+		TitlebarColor:  titlebarColor,
+		StatusbarColor: statusbarColor,
+	})
+}
+
+// SetIconBadge met à jour le badge d'une icône de module.
+func (a *App) SetIconBadge(moduleID string, count int) error {
+	if a.eng == nil {
+		return fmt.Errorf("engine not ready")
+	}
+	return a.eng.Dispatch("engine", api.TopicUIIconBadge, api.PayloadUIIconBadge{
+		ModuleID: moduleID,
+		Count:    count,
+	})
+}
+
+// SwitchView force le switch vers une vue (moduleID ou "editor").
+func (a *App) SwitchView(viewID string) error {
+	if a.ctx == nil {
+		return fmt.Errorf("context not ready")
+	}
+	runtime.EventsEmit(a.ctx, "axiom:event", map[string]interface{}{
+		"topic":  "ui.view.switch",
+		"source": "app",
+		"payload": map[string]interface{}{
+			"view_id": viewID,
+		},
+	})
+	return nil
+}
+
 // ─── Internal helpers ─────────────────────────────────────────────
 
-// isBindingsGeneration detects the brief Wails process for generating JS bindings.
 func isBindingsGeneration() bool {
 	for _, arg := range os.Args {
 		if strings.Contains(arg, "wailsbindings") || strings.Contains(arg, "bindings") {
@@ -340,7 +430,6 @@ func newLogger(level string) *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 }
 
-// appFSPublisher adapts *engine.Engine to filesystem.EventPublisher.
 type appFSPublisher struct{ eng *engine.Engine }
 
 func (p *appFSPublisher) Subscribe(topic api.Topic, handler func(api.Event)) string {
@@ -350,7 +439,6 @@ func (p *appFSPublisher) Publish(event api.Event) {
 	_ = p.eng.Dispatch("filesystem", event.Topic, event.Payload)
 }
 
-// appEngineProxy adapts *engine.Engine to module.Dispatcher + module.Subscriber.
 type appEngineProxy struct{ eng *engine.Engine }
 
 func (p *appEngineProxy) Dispatch(moduleID string, topic api.Topic, payload interface{}) error {
