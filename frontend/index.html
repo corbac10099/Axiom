@@ -133,8 +133,9 @@
     <div id="sidebar-header">Explorateur</div>
     <div id="sidebar-content">
       <div class="tree-item dir"><span class="tree-indent"></span><span>▼</span><span>AXIOM</span></div>
-      <div class="tree-item"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>main.go</span></div>
-      <div class="tree-item"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>go.mod</span></div>
+      <div class="tree-item" data-file="main.go"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>main.go</span></div>
+      <div class="tree-item" data-file="app.go"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>app.go</span></div>
+      <div class="tree-item" data-file="go.mod"><span class="tree-indent"></span><span class="tree-indent"></span><span>📄</span><span>go.mod</span></div>
       <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>core/</span></div>
       <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>modules/</span></div>
       <div class="tree-item dir"><span class="tree-indent"></span><span class="tree-indent"></span><span>▶</span><span>frontend/</span></div>
@@ -174,7 +175,7 @@
     <div class="status-item" id="status-lang">Go</div>
     <div class="status-item" id="status-cursor">Ln 1, Col 1</div>
     <div class="status-item" id="status-encoding">UTF-8</div>
-    <div class="status-item" id="status-engine">✓ Engine</div>
+    <div class="status-item" id="status-engine">○ Connecting…</div>
   </div>
 </div>
 
@@ -191,227 +192,313 @@
 <script>
 'use strict';
 
-const state = { openTabs: [], activeTab: null, bottomVisible: false };
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+var state = { openTabs: [], activeTab: null, bottomVisible: false };
 
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
 function toast(msg, type, ms) {
   var el = document.createElement('div');
-  el.className = 'toast ' + (type||'info');
+  el.className = 'toast ' + (type || 'info');
   el.textContent = msg;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(function(){ el.remove(); }, ms||3000);
+  setTimeout(function() { el.remove(); }, ms || 3000);
 }
 
-function ext(p){ var m=p.match(/\.([^.]+)$/); return m?m[1].toLowerCase():''; }
-function langIcon(p){ return ({go:'🐹',js:'📜',ts:'📘',json:'📋',md:'📝',html:'🌐',css:'🎨',rs:'🦀',py:'🐍'})[ext(p)]||'📄'; }
-function langName(p){ return ({go:'Go',js:'JavaScript',ts:'TypeScript',json:'JSON',md:'Markdown',html:'HTML',css:'CSS',rs:'Rust',py:'Python'})[ext(p)]||'Texte'; }
-function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ext(p) { var m = p.match(/\.([^.]+)$/); return m ? m[1].toLowerCase() : ''; }
+function langIcon(p) { return ({go:'🐹',js:'📜',ts:'📘',json:'📋',md:'📝',html:'🌐',css:'🎨',rs:'🦀',py:'🐍'})[ext(p)] || '📄'; }
+function langName(p) { return ({go:'Go',js:'JavaScript',ts:'TypeScript',json:'JSON',md:'Markdown',html:'HTML',css:'CSS',rs:'Rust',py:'Python'})[ext(p)] || 'Texte'; }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
 function openTab(path, content) {
-  var ex = state.openTabs.find(function(t){ return t.path===path; });
-  if(ex){ activateTab(ex.id); return; }
-  var id = 'tab-'+Date.now();
+  var ex = state.openTabs.find(function(t) { return t.path === path; });
+  if (ex) { activateTab(ex.id); return; }
+  var id = 'tab-' + Date.now();
   var parts = path.split(/[/\\]/);
-  state.openTabs.push({id:id, path:path, title:parts[parts.length-1], dirty:false, language:langName(path), content:content||''});
+  state.openTabs.push({ id: id, path: path, title: parts[parts.length - 1], dirty: false, language: langName(path), content: content || '' });
   activateTab(id);
 }
 
 function closeTab(id) {
-  var idx = state.openTabs.findIndex(function(t){ return t.id===id; });
-  if(idx===-1) return;
-  state.openTabs.splice(idx,1);
-  if(state.activeTab===id){ var n=state.openTabs[Math.max(0,idx-1)]; state.activeTab=n?n.id:null; }
+  var idx = state.openTabs.findIndex(function(t) { return t.id === id; });
+  if (idx === -1) return;
+  state.openTabs.splice(idx, 1);
+  if (state.activeTab === id) { var n = state.openTabs[Math.max(0, idx - 1)]; state.activeTab = n ? n.id : null; }
   renderTabs(); renderEditor();
 }
 
-function activateTab(id){ state.activeTab=id; renderTabs(); renderEditor(); }
+function activateTab(id) { state.activeTab = id; renderTabs(); renderEditor(); }
 
 function renderTabs() {
-  var bar=document.getElementById('tab-bar'); bar.innerHTML='';
-  state.openTabs.forEach(function(tab){
-    var el=document.createElement('div');
-    el.className='editor-tab'+(tab.id===state.activeTab?' active':'')+(tab.dirty?' dirty':'');
-    el.innerHTML='<span>'+langIcon(tab.path)+' '+tab.title+'</span><span class="tab-close" data-close="'+tab.id+'">✕</span>';
-    el.addEventListener('click',function(e){ if(e.target.dataset.close){closeTab(e.target.dataset.close);return;} activateTab(tab.id); });
+  var bar = document.getElementById('tab-bar'); bar.innerHTML = '';
+  state.openTabs.forEach(function(tab) {
+    var el = document.createElement('div');
+    el.className = 'editor-tab' + (tab.id === state.activeTab ? ' active' : '') + (tab.dirty ? ' dirty' : '');
+    el.innerHTML = '<span>' + langIcon(tab.path) + ' ' + tab.title + '</span><span class="tab-close" data-close="' + tab.id + '">✕</span>';
+    el.addEventListener('click', function(e) { if (e.target.dataset.close) { closeTab(e.target.dataset.close); return; } activateTab(tab.id); });
     bar.appendChild(el);
   });
 }
 
 function renderEditor() {
-  var w=document.getElementById('welcome'), c=document.getElementById('code-editor');
-  var crumb=document.getElementById('breadcrumb'), lang=document.getElementById('status-lang');
-  var tab=state.openTabs.find(function(t){ return t.id===state.activeTab; });
-  if(!tab){ w.style.display='flex'; c.classList.remove('visible'); crumb.innerHTML='<span>Axiom</span>'; lang.textContent=''; return; }
-  w.style.display='none'; c.classList.add('visible');
-  var parts=tab.path.split(/[/\\]/);
-  crumb.innerHTML=parts.map(function(p,i){ return '<span>'+p+'</span>'+(i<parts.length-1?'<span style="color:#555"> › </span>':''); }).join('');
-  lang.textContent=tab.language;
-  c.innerHTML='<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">'+escHtml(tab.content||'// Ouvre un fichier depuis l\'explorateur\n')+'</pre>';
+  var w = document.getElementById('welcome'), c = document.getElementById('code-editor');
+  var crumb = document.getElementById('breadcrumb'), lang = document.getElementById('status-lang');
+  var tab = state.openTabs.find(function(t) { return t.id === state.activeTab; });
+  if (!tab) { w.style.display = 'flex'; c.classList.remove('visible'); crumb.innerHTML = '<span>Axiom</span>'; lang.textContent = ''; return; }
+  w.style.display = 'none'; c.classList.add('visible');
+  var parts = tab.path.split(/[/\\]/);
+  crumb.innerHTML = parts.map(function(p, i) { return '<span>' + p + '</span>' + (i < parts.length - 1 ? '<span style="color:#555"> › </span>' : ''); }).join('');
+  lang.textContent = tab.language;
+  c.innerHTML = '<pre style="padding:16px;margin:0;color:#d4d4d4;white-space:pre-wrap;word-break:break-all">' + escHtml(tab.content || '') + '</pre>';
 }
 
-// Activity bar
-document.getElementById('activity-bar').addEventListener('click',function(e){
-  var icon=e.target.closest('.activity-icon'); if(!icon) return;
-  document.querySelectorAll('.activity-icon').forEach(function(i){i.classList.remove('active');});
+// ═══════════════════════════════════════════════════════════════
+// UI INTERACTIONS
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('activity-bar').addEventListener('click', function(e) {
+  var icon = e.target.closest('.activity-icon'); if (!icon) return;
+  document.querySelectorAll('.activity-icon').forEach(function(i) { i.classList.remove('active'); });
   icon.classList.add('active');
-  document.getElementById('sidebar-header').textContent=(icon.dataset.panel||'').toUpperCase();
+  document.getElementById('sidebar-header').textContent = (icon.dataset.panel || '').toUpperCase();
 });
 
-// File tree → try Go binding first
-document.getElementById('sidebar-content').addEventListener('click',function(e){
-  var item=e.target.closest('.tree-item'); if(!item||item.classList.contains('dir')) return;
-  var name=item.querySelector('span:last-child').textContent;
-  document.querySelectorAll('.tree-item').forEach(function(i){i.classList.remove('active');});
+// File tree clicks — tries Go binding first, falls back to stub
+document.getElementById('sidebar-content').addEventListener('click', function(e) {
+  var item = e.target.closest('.tree-item'); if (!item || item.classList.contains('dir')) return;
+  var file = item.dataset.file || item.querySelector('span:last-child').textContent;
+  document.querySelectorAll('.tree-item').forEach(function(i) { i.classList.remove('active'); });
   item.classList.add('active');
-  if(window.go && window.go.App && window.go.App.ReadFile){
-    window.go.App.ReadFile(name).then(function(c){ openTab(name,c); }).catch(function(){ openTab(name,''); });
-  } else { openTab(name,''); }
+  // window.go.main.App is the Wails v2 bound namespace
+  if (window.go && window.go.main && window.go.main.App) {
+    window.go.main.App.ReadFile(file)
+      .then(function(content) { openTab(file, content); })
+      .catch(function(err) { toast('Lecture impossible: ' + err, 'error'); openTab(file, ''); });
+  } else {
+    openTab(file, '// Ouvre ce fichier pour voir son contenu\n');
+  }
 });
 
-// Bottom panel
-document.querySelectorAll('.panel-tab').forEach(function(t){
-  t.addEventListener('click',function(){
-    document.querySelectorAll('.panel-tab').forEach(function(x){x.classList.remove('active');});
-    t.classList.add('active'); state.bottomVisible=true;
+// Bottom panel tabs
+document.querySelectorAll('.panel-tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    document.querySelectorAll('.panel-tab').forEach(function(x) { x.classList.remove('active'); });
+    t.classList.add('active'); state.bottomVisible = true;
     document.getElementById('bottom-panel').classList.add('visible');
   });
 });
 
-// Panel resize
-(function(){
-  var h=document.getElementById('panel-resize'), drag=false, sy=0, sh=0;
-  h.addEventListener('mousedown',function(e){ drag=true; sy=e.clientY; sh=document.getElementById('bottom-panel').offsetHeight; document.body.style.cursor='ns-resize'; e.preventDefault(); });
-  document.addEventListener('mousemove',function(e){ if(!drag)return; document.getElementById('bottom-panel').style.height=Math.max(80,Math.min(600,sh+(sy-e.clientY)))+'px'; });
-  document.addEventListener('mouseup',function(){ drag=false; document.body.style.cursor=''; });
+// Panel resize handle
+(function() {
+  var h = document.getElementById('panel-resize'), drag = false, sy = 0, sh = 0;
+  h.addEventListener('mousedown', function(e) { drag = true; sy = e.clientY; sh = document.getElementById('bottom-panel').offsetHeight; document.body.style.cursor = 'ns-resize'; e.preventDefault(); });
+  document.addEventListener('mousemove', function(e) { if (!drag) return; document.getElementById('bottom-panel').style.height = Math.max(80, Math.min(600, sh + (sy - e.clientY))) + 'px'; });
+  document.addEventListener('mouseup', function() { drag = false; document.body.style.cursor = ''; });
 })();
 
-// Command palette
-var COMMANDS=[
-  {label:'Nouveau fichier',key:'Ctrl+N',action:function(){toast('Nouveau fichier — TODO','info');}},
-  {label:'Sauvegarder',key:'Ctrl+S',action:function(){toast('Sauvegardé ✓','success',1500);}},
-  {label:"Fermer l'onglet",key:'Ctrl+W',action:function(){if(state.activeTab)closeTab(state.activeTab);}},
-  {label:'Terminal',key:'Ctrl+`',action:function(){togglePanel();}},
-  {label:'Sidebar',key:'Ctrl+B',action:function(){toggleSidebar();}},
-  {label:'Thème sombre',key:'',action:function(){axiomSetTheme('dark');}},
-  {label:'Thème clair',key:'',action:function(){axiomSetTheme('light');}},
+// ═══════════════════════════════════════════════════════════════
+// COMMAND PALETTE
+// ═══════════════════════════════════════════════════════════════
+var COMMANDS = [
+  { label: 'Nouveau fichier', key: 'Ctrl+N', action: function() { toast('Nouveau fichier — TODO', 'info'); } },
+  { label: 'Sauvegarder', key: 'Ctrl+S', action: function() { axiomSave(); } },
+  { label: "Fermer l'onglet", key: 'Ctrl+W', action: function() { if (state.activeTab) closeTab(state.activeTab); } },
+  { label: 'Terminal', key: 'Ctrl+`', action: function() { togglePanel(); } },
+  { label: 'Sidebar', key: 'Ctrl+B', action: function() { toggleSidebar(); } },
+  { label: 'Thème sombre', key: '', action: function() { axiomGoSetTheme('dark'); } },
+  { label: 'Thème clair', key: '', action: function() { axiomGoSetTheme('light'); } },
+  { label: 'Sauvegarder workspace', key: '', action: function() { axiomGoSaveWorkspace(); } },
 ];
-var cmdSel=0;
-function openCommandPalette(){ document.getElementById('command-palette').classList.add('visible'); var i=document.getElementById('command-input'); i.value=''; cmdSel=0; renderCmds(''); i.focus(); }
-function closeCommandPalette(){ document.getElementById('command-palette').classList.remove('visible'); }
-function renderCmds(f){
-  var list=COMMANDS.filter(function(c){return c.label.toLowerCase().includes(f.toLowerCase());});
-  var ct=document.getElementById('command-results'); ct.innerHTML='';
-  list.forEach(function(cmd,i){
-    var el=document.createElement('div'); el.className='cmd-item'+(i===cmdSel?' selected':'');
-    el.innerHTML='<span class="cmd-label">⚡ '+cmd.label+'</span><span class="cmd-key">'+cmd.key+'</span>';
-    el.addEventListener('click',function(){cmd.action();closeCommandPalette();});
+var cmdSel = 0;
+
+function openCommandPalette() {
+  document.getElementById('command-palette').classList.add('visible');
+  var i = document.getElementById('command-input'); i.value = ''; cmdSel = 0; renderCmds(''); i.focus();
+}
+function closeCommandPalette() { document.getElementById('command-palette').classList.remove('visible'); }
+function renderCmds(f) {
+  var list = COMMANDS.filter(function(c) { return c.label.toLowerCase().includes(f.toLowerCase()); });
+  var ct = document.getElementById('command-results'); ct.innerHTML = '';
+  list.forEach(function(cmd, i) {
+    var el = document.createElement('div'); el.className = 'cmd-item' + (i === cmdSel ? ' selected' : '');
+    el.innerHTML = '<span class="cmd-label">⚡ ' + cmd.label + '</span><span class="cmd-key">' + cmd.key + '</span>';
+    el.addEventListener('click', function() { cmd.action(); closeCommandPalette(); });
     ct.appendChild(el);
   });
 }
-document.getElementById('command-input').addEventListener('input',function(e){cmdSel=0;renderCmds(e.target.value);});
-document.getElementById('command-input').addEventListener('keydown',function(e){
-  var l=document.querySelectorAll('.cmd-item');
-  if(e.key==='ArrowDown'){cmdSel=Math.min(cmdSel+1,l.length-1);renderCmds(e.target.value);}
-  else if(e.key==='ArrowUp'){cmdSel=Math.max(cmdSel-1,0);renderCmds(e.target.value);}
-  else if(e.key==='Enter'){if(l[cmdSel])l[cmdSel].click();}
-  else if(e.key==='Escape'){closeCommandPalette();}
+document.getElementById('command-input').addEventListener('input', function(e) { cmdSel = 0; renderCmds(e.target.value); });
+document.getElementById('command-input').addEventListener('keydown', function(e) {
+  var l = document.querySelectorAll('.cmd-item');
+  if (e.key === 'ArrowDown') { cmdSel = Math.min(cmdSel + 1, l.length - 1); renderCmds(e.target.value); }
+  else if (e.key === 'ArrowUp') { cmdSel = Math.max(cmdSel - 1, 0); renderCmds(e.target.value); }
+  else if (e.key === 'Enter') { if (l[cmdSel]) l[cmdSel].click(); }
+  else if (e.key === 'Escape') { closeCommandPalette(); }
 });
-document.getElementById('command-palette').addEventListener('click',function(e){if(e.target===document.getElementById('command-palette'))closeCommandPalette();});
+document.getElementById('command-palette').addEventListener('click', function(e) { if (e.target === document.getElementById('command-palette')) closeCommandPalette(); });
 
 // Keyboard shortcuts
-document.addEventListener('keydown',function(e){
-  var c=e.ctrlKey||e.metaKey;
-  if(c&&e.shiftKey&&e.key==='P'){e.preventDefault();openCommandPalette();return;}
-  if(c&&e.key==='s'){e.preventDefault();toast('Sauvegardé ✓','success',1500);return;}
-  if(c&&e.key==='w'){e.preventDefault();if(state.activeTab)closeTab(state.activeTab);return;}
-  if(c&&e.key==='b'){e.preventDefault();toggleSidebar();return;}
-  if(c&&e.key==='`'){e.preventDefault();togglePanel();return;}
-  if(e.key==='Escape'){closeCommandPalette();document.getElementById('context-menu').classList.remove('visible');}
+document.addEventListener('keydown', function(e) {
+  var c = e.ctrlKey || e.metaKey;
+  if (c && e.shiftKey && e.key === 'P') { e.preventDefault(); openCommandPalette(); return; }
+  if (c && e.key === 's') { e.preventDefault(); axiomSave(); return; }
+  if (c && e.key === 'w') { e.preventDefault(); if (state.activeTab) closeTab(state.activeTab); return; }
+  if (c && e.key === 'b') { e.preventDefault(); toggleSidebar(); return; }
+  if (c && e.key === '`') { e.preventDefault(); togglePanel(); return; }
+  if (e.key === 'Escape') { closeCommandPalette(); document.getElementById('context-menu').classList.remove('visible'); }
 });
 
-function toggleSidebar(){
-  var sb=document.getElementById('sidebar'); var hidden=sb.style.display==='none';
-  sb.style.display=hidden?'':'none';
-  document.getElementById('app').style.gridTemplateColumns=hidden?'48px 240px 1fr':'48px 0 1fr';
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar'); var hidden = sb.style.display === 'none';
+  sb.style.display = hidden ? '' : 'none';
+  document.getElementById('app').style.gridTemplateColumns = hidden ? '48px 240px 1fr' : '48px 0 1fr';
 }
-function togglePanel(){
-  state.bottomVisible=!state.bottomVisible;
-  document.getElementById('bottom-panel').classList.toggle('visible',state.bottomVisible);
-  if(state.bottomVisible) document.querySelector('.panel-tab').classList.add('active');
+function togglePanel() {
+  state.bottomVisible = !state.bottomVisible;
+  document.getElementById('bottom-panel').classList.toggle('visible', state.bottomVisible);
+  if (state.bottomVisible) document.querySelector('.panel-tab').classList.add('active');
 }
 
 // Context menu
-document.addEventListener('contextmenu',function(e){
+document.addEventListener('contextmenu', function(e) {
   e.preventDefault();
-  var menu=document.getElementById('context-menu');
-  menu.innerHTML='<div class="ctx-item" onclick="openCommandPalette()">Palette de commandes <kbd>Ctrl+⇧+P</kbd></div><div class="ctx-sep"></div><div class="ctx-item">Copier <kbd>Ctrl+C</kbd></div><div class="ctx-item">Coller <kbd>Ctrl+V</kbd></div>';
-  menu.style.left=e.clientX+'px'; menu.style.top=e.clientY+'px';
+  var menu = document.getElementById('context-menu');
+  menu.innerHTML = '<div class="ctx-item" onclick="openCommandPalette()">Palette de commandes <kbd>Ctrl+⇧+P</kbd></div><div class="ctx-sep"></div><div class="ctx-item">Copier <kbd>Ctrl+C</kbd></div><div class="ctx-item">Coller <kbd>Ctrl+V</kbd></div>';
+  menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px';
   menu.classList.add('visible');
 });
-document.addEventListener('click',function(){document.getElementById('context-menu').classList.remove('visible');});
+document.addEventListener('click', function() { document.getElementById('context-menu').classList.remove('visible'); });
 
-// ════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// GO BINDING HELPERS  (window.go.main.App.*)
+// These wrap the Wails v2 bound methods with error handling.
+// ═══════════════════════════════════════════════════════════════
+
+function goApp() {
+  return window.go && window.go.main && window.go.main.App ? window.go.main.App : null;
+}
+
+function axiomSave() {
+  var app = goApp();
+  if (app) {
+    app.SaveWorkspace()
+      .then(function() { toast('Workspace sauvegardé ✓', 'success', 1500); })
+      .catch(function(e) { toast('Erreur sauvegarde: ' + e, 'error'); });
+  } else {
+    toast('Sauvegardé ✓', 'success', 1500);
+  }
+}
+
+function axiomGoSetTheme(themeID) {
+  axiomSetTheme(themeID); // local CSS change
+  var app = goApp();
+  if (app) {
+    app.SetTheme(themeID).catch(function(e) { console.warn('SetTheme:', e); });
+  }
+}
+
+function axiomGoSaveWorkspace() {
+  var app = goApp();
+  if (app) {
+    app.SaveWorkspace()
+      .then(function() { toast('Workspace sauvegardé ✓', 'success', 2000); })
+      .catch(function(e) { toast('Erreur: ' + e, 'error'); });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // WAILS v2 BRIDGE
-// Go → JS : window.runtime.EventsOn("axiom:event", callback)
-// JS → Go : window.runtime.EventsEmit("axiom:input", data)
-//         + window.go.App.MethodName() pour les appels bindés
-// ════════════════════════════════════════════════════════════════
-window.addEventListener('load', function() {
-  // Attendre que le runtime Wails v2 soit injecté
-  var checkRuntime = function(attempt) {
-    if (window.runtime) {
-      initWailsBridge();
-    } else if (attempt < 20) {
-      setTimeout(function(){ checkRuntime(attempt+1); }, 100);
-    } else {
-      console.log('[Axiom] Running without Wails runtime (browser mode)');
-    }
-  };
-  checkRuntime(0);
-});
+// Waits for window.runtime (injected by Wails after load).
+// Go → JS : runtime.EventsOn("axiom:event", cb)
+// JS → Go : runtime.EventsEmit("axiom:input", data)
+// Bound  : window.go.main.App.MethodName(args) → Promise
+// ═══════════════════════════════════════════════════════════════
 
 function initWailsBridge() {
-  console.log('[Axiom] Wails v2 runtime detected, initializing bridge...');
+  console.log('[Axiom] Wails v2 bridge initializing…');
 
-  // Go → JS : écoute les événements Axiom émis par runtime.EventsEmit
-  window.runtime.EventsOn('axiom:event', function(event) {
-    if (!event || !event.topic) return;
-    console.log('[Axiom] Go→JS:', event.topic);
-    switch(event.topic) {
+  // ── Go → JS: engine events pushed by the backend ──────────────
+  window.runtime.EventsOn('axiom:event', function(ev) {
+    if (!ev || !ev.topic) return;
+    console.log('[Axiom] Go→JS:', ev.topic, ev.payload || '');
+
+    switch (ev.topic) {
       case 'file.opened':
-        if(event.payload && event.payload.path) openTab(event.payload.path, event.payload.content||'');
+        if (ev.payload && ev.payload.path) {
+          openTab(ev.payload.path, ev.payload.content || '');
+        }
         break;
+
       case 'ui.theme.set':
-        if(event.payload && event.payload.theme_id) axiomSetTheme(event.payload.theme_id);
+        if (ev.payload && ev.payload.theme_id) {
+          axiomSetTheme(ev.payload.theme_id);
+        }
         break;
+
       case 'workspace.restored':
-        toast('Workspace restauré (' + ((event.payload&&event.payload.tabs_restored)||0) + ' onglets)', 'success', 2000);
+        var n = (ev.payload && ev.payload.tabs_restored) || 0;
+        toast('Workspace restauré (' + n + ' onglets)', 'success', 2500);
         break;
+
       case 'ai.response':
-        if(event.payload && !event.payload.success) toast('AI: '+event.payload.error, 'error', 4000);
+        if (ev.payload && !ev.payload.success) {
+          toast('AI: ' + (ev.payload.error || 'erreur inconnue'), 'error', 4000);
+        }
         break;
+
       case 'system.module.loaded':
-        if(event.payload) console.log('[Axiom] Module loaded:', event.payload.module_id);
+        if (ev.payload) {
+          console.log('[Axiom] Module loaded:', ev.payload.module_id);
+        }
+        break;
+
+      case 'security.denied':
+        console.warn('[Axiom] Security denied:', ev.payload);
         break;
     }
   });
 
-  // Contenu fenêtre logique
-  window.runtime.EventsOn('axiom:window:content', function(data) {
-    if(data && data.id){ var el=document.getElementById(data.id); if(el) el.innerHTML=data.html||''; }
-  });
-
-  // Helper JS → Go (events)
+  // ── JS → Go: emit user input events ──────────────────────────
+  // Override global axiomEmit to route through the Wails event bridge
   window.axiomEmit = function(eventType, data) {
     window.runtime.EventsEmit('axiom:input', {
-      window_id: 'main', event_type: eventType, data: data||{}
+      window_id: 'main',
+      event_type: eventType,
+      data: data || {}
     });
   };
 
-  document.getElementById('status-engine').textContent = '✓ Engine Connected';
+  // ── Mark engine as connected ──────────────────────────────────
+  document.getElementById('status-engine').textContent = '✓ Engine';
+  toast('Axiom IDE prêt', 'success', 1500);
+
   console.log('[Axiom] Wails v2 bridge ready');
 }
 
-// Init
+// Poll for window.runtime (Wails injects it asynchronously after the WebView loads)
+window.addEventListener('load', function() {
+  var attempts = 0;
+  var maxAttempts = 50; // 5 seconds
+  var interval = setInterval(function() {
+    attempts++;
+    if (window.runtime) {
+      clearInterval(interval);
+      initWailsBridge();
+    } else if (attempts >= maxAttempts) {
+      clearInterval(interval);
+      console.log('[Axiom] Running without Wails runtime (browser/dev mode)');
+      document.getElementById('status-engine').textContent = '⚠ No runtime';
+    }
+  }, 100);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
 renderTabs();
 renderEditor();
 console.log('[Axiom IDE] Frontend ready');

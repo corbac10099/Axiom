@@ -1,5 +1,3 @@
-//go:build wails
-
 package main
 
 import (
@@ -10,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"github.com/axiom-ide/axiom/api"
 	axiomconfig "github.com/axiom-ide/axiom/core/config"
 	"github.com/axiom-ide/axiom/core/engine"
@@ -19,12 +19,10 @@ import (
 	"github.com/axiom-ide/axiom/core/tabs"
 	"github.com/axiom-ide/axiom/core/workspace"
 	aiassistant "github.com/axiom-ide/axiom/modules/ai-assistant"
-	wailsadapter "github.com/axiom-ide/axiom/adapters/wails"
 )
 
-// App est le struct central exposé au frontend via Wails v2.
-// Toutes les méthodes publiques deviennent des fonctions JS appelables
-// via window.go.App.MethodName(...) dans le frontend.
+// App is the main struct bound to the Wails frontend.
+// Every public method becomes callable from JS via window.go.main.App.MethodName().
 type App struct {
 	ctx     context.Context
 	eng     *engine.Engine
@@ -32,49 +30,41 @@ type App struct {
 	persist *workspace.Persistence
 	runner  *module.Runner
 	fsHdlr  *filesystem.Handler
-	adapter *wailsadapter.Adapter
 	cfg     axiomconfig.Config
 	logger  *slog.Logger
 }
 
-// NewApp crée l'instance App (appelé avant OnStartup).
+// NewApp creates the App instance (called before OnStartup).
 func NewApp() *App {
-	return &App{logger: slog.Default()}
-}
-
-// isBindingsGeneration détecte si Wails est en train de générer les bindings.
-// Dans ce cas, le binaire est lancé brièvement avec un flag spécial — on doit
-// éviter de démarrer l'engine pour ne pas bloquer le processus.
-func isBindingsGeneration() bool {
-	for _, arg := range os.Args {
-		if strings.Contains(arg, "wailsbindings") ||
-			strings.Contains(arg, "-wailsbindings") ||
-			strings.Contains(arg, "bindings") {
-			return true
-		}
+	return &App{
+		logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})),
 	}
-	return false
 }
 
-// OnStartup est appelé par Wails v2 après la création de la fenêtre.
-// c est le contexte Wails — OBLIGATOIRE pour runtime.EventsEmit.
-func (a *App) OnStartup(c context.Context) {
-	a.ctx = c
+// ─── Lifecycle ────────────────────────────────────────────────────
 
-	// ── Guard : skip si génération des bindings ───────────────────
+// OnStartup is called by Wails after the window is created.
+// ctx is the Wails context — required for runtime.EventsEmit/On.
+func (a *App) OnStartup(ctx context.Context) {
+	a.ctx = ctx
+
+	// Wails calls the binary briefly to generate JS bindings — skip full init.
 	if isBindingsGeneration() {
-		a.logger.Info("axiom: bindings generation mode — skipping engine init")
+		a.logger.Info("axiom: bindings generation mode, skipping engine init")
 		return
 	}
 
-	// ── Config ──────────────────────────────────────────────────
+	// ── Config ──────────────────────────────────────────────────────
 	cfg, warnings := axiomconfig.Load("")
 	for _, w := range warnings {
-		a.logger.Warn("config", slog.String("msg", w))
+		a.logger.Warn("config warning", slog.String("msg", w))
 	}
 	a.cfg = cfg
+	a.logger = newLogger(cfg.Core.LogLevel)
 
-	// ── Engine ──────────────────────────────────────────────────
+	// ── Engine ──────────────────────────────────────────────────────
 	eng, err := engine.New(engine.Config{
 		ModulesDir:    cfg.Core.ModulesDir,
 		LogLevel:      cfg.Core.LogLevel,
@@ -86,8 +76,8 @@ func (a *App) OnStartup(c context.Context) {
 	}
 	a.eng = eng
 
-	// ── FileSystem ───────────────────────────────────────────────
-	fsPub := &appEngineProxy{eng: eng}
+	// ── Filesystem ──────────────────────────────────────────────────
+	fsPub := &appFSPublisher{eng: eng}
 	fsHdlr, err := filesystem.NewHandler(filesystem.Config{
 		WorkspaceDir:   cfg.Core.WorkspaceDir,
 		MaxFileSizeMB:  cfg.FileSystem.MaxFileSizeMB,
@@ -99,18 +89,13 @@ func (a *App) OnStartup(c context.Context) {
 	}
 	a.fsHdlr = fsHdlr
 
-	// ── Wails v2 Adapter ─────────────────────────────────────────
-	adapter := wailsadapter.NewAdapter(c, a.logger)
-	adapter.RegisterBidirectional(eng.Bus())
-	a.adapter = adapter
+	// ── Orchestrator (noop — no native window adapter needed for Wails) ──
+	_ = orchestrator.NewOrchestrator(nil, eng.Bus(), a.logger)
 
-	// ── Orchestrator ─────────────────────────────────────────────
-	_ = orchestrator.NewOrchestrator(adapter, eng.Bus(), a.logger)
-
-	// ── Tab Manager ───────────────────────────────────────────────
+	// ── Tab Manager ─────────────────────────────────────────────────
 	a.tabMgr = tabs.NewManager(eng.Bus(), a.logger)
 
-	// ── Module Runner ─────────────────────────────────────────────
+	// ── Module Runner ───────────────────────────────────────────────
 	a.runner = module.NewRunner(a.logger)
 	a.runner.Register(aiassistant.New(aiassistant.Config{
 		Provider:    cfg.AI.Provider,
@@ -122,32 +107,44 @@ func (a *App) OnStartup(c context.Context) {
 		TimeoutSecs: cfg.AI.TimeoutSecs,
 	}, a.logger))
 
-	// ── Workspace Persistence ─────────────────────────────────────
+	// ── Workspace Persistence ───────────────────────────────────────
 	a.persist = workspace.NewPersistence(
 		eng.Bus(), a.tabMgr, nil,
 		cfg.Core.WorkspaceDir, a.logger,
 	)
 
-	// ── Démarrage ─────────────────────────────────────────────────
+	// ── Start ───────────────────────────────────────────────────────
 	if err := eng.Start(); err != nil {
 		a.logger.Error("engine start failed", slog.String("error", err.Error()))
 		return
 	}
+
 	a.tabMgr.Start()
 	a.persist.Start()
 
-	engProxy := &appEngineProxy{eng: eng}
-	if errs := a.runner.InitAll(c, engProxy, engProxy); len(errs) > 0 {
+	proxy := &appEngineProxy{eng: eng}
+	if errs := a.runner.InitAll(ctx, proxy, proxy); len(errs) > 0 {
 		for _, e := range errs {
 			a.logger.Warn("module init error", slog.String("error", e.Error()))
 		}
 	}
 
-	a.logger.Info("axiom wails v2: engine ready ✓")
+	// ── Go → JS bridge ──────────────────────────────────────────────
+	a.setupGoToJSBridge()
+
+	// ── JS → Go bridge (events from frontend) ───────────────────────
+	runtime.EventsOn(ctx, "axiom:input", func(data ...interface{}) {
+		a.handleJSEvent(data...)
+	})
+
+	a.logger.Info("axiom: ready ✓",
+		slog.String("provider", cfg.AI.Provider),
+		slog.String("workspace", cfg.Core.WorkspaceDir),
+	)
 }
 
-// OnShutdown est appelé par Wails v2 avant la fermeture.
-func (a *App) OnShutdown(ctx context.Context) {
+// OnShutdown is called by Wails before the window closes.
+func (a *App) OnShutdown(_ context.Context) {
 	if a.persist != nil {
 		_ = a.persist.SaveSync()
 	}
@@ -159,15 +156,73 @@ func (a *App) OnShutdown(ctx context.Context) {
 	}
 }
 
-// ─────────────────────────────────────────────
-// MÉTHODES BINDÉES — appelables depuis le JS
-// via window.go.App.MethodName(args)
-// ─────────────────────────────────────────────
+// ─── Go → JS bridge ──────────────────────────────────────────────
 
-// ReadFile lit un fichier du workspace.
+// setupGoToJSBridge subscribes to internal topics and pushes them to the frontend.
+func (a *App) setupGoToJSBridge() {
+	// Topics that the frontend needs to react to
+	pushTopics := []api.Topic{
+		api.TopicUISetTheme,
+		api.TopicUIOpenPanel,
+		api.TopicUIClosePanel,
+		api.TopicEditorTabChanged,
+		api.TopicWorkspaceRestored,
+		api.TopicFileOpened,
+		api.TopicAIResponse,
+		api.TopicModuleLoaded,
+		api.TopicSecurityDenied,
+	}
+
+	for _, topic := range pushTopics {
+		t := topic
+		a.eng.Subscribe(t, func(ev api.Event) {
+			if a.ctx == nil {
+				return
+			}
+			// Serialize payload to a JSON-safe map
+			payloadJSON, _ := json.Marshal(ev.Payload)
+			var payloadMap interface{}
+			_ = json.Unmarshal(payloadJSON, &payloadMap)
+
+			runtime.EventsEmit(a.ctx, "axiom:event", map[string]interface{}{
+				"event_id":  ev.ID,
+				"topic":     string(ev.Topic),
+				"source":    ev.Source,
+				"payload":   payloadMap,
+				"timestamp": ev.Timestamp.UnixMilli(),
+			})
+		})
+	}
+
+	a.logger.Info("axiom: Go→JS bridge active",
+		slog.Int("topics", len(pushTopics)),
+	)
+}
+
+// handleJSEvent processes events emitted by the JS frontend via axiom:input.
+func (a *App) handleJSEvent(data ...interface{}) {
+	if len(data) == 0 || a.eng == nil {
+		return
+	}
+	raw, err := json.Marshal(data[0])
+	if err != nil {
+		a.logger.Warn("axiom: cannot marshal JS event", slog.String("error", err.Error()))
+		return
+	}
+	var p api.PayloadUIUserInput
+	if err := json.Unmarshal(raw, &p); err != nil {
+		a.logger.Warn("axiom: cannot unmarshal JS event", slog.String("error", err.Error()))
+		return
+	}
+	_ = a.eng.Dispatch("engine", api.TopicUIUserInput, p)
+}
+
+// ─── Bound Methods — callable from JS ────────────────────────────
+
+// ReadFile reads a file from the workspace and returns its content.
 func (a *App) ReadFile(path string) (string, error) {
 	if a.fsHdlr == nil {
-		return "", fmt.Errorf("filesystem not initialized")
+		return "", fmt.Errorf("filesystem not ready")
 	}
 	result, err := a.fsHdlr.ReadFile(path)
 	if err != nil {
@@ -176,49 +231,65 @@ func (a *App) ReadFile(path string) (string, error) {
 	return result.Content, nil
 }
 
-// WriteFile écrit du contenu dans un fichier du workspace.
+// WriteFile writes (or overwrites) a file in the workspace.
 func (a *App) WriteFile(path, content string) error {
 	if a.fsHdlr == nil {
-		return fmt.Errorf("filesystem not initialized")
+		return fmt.Errorf("filesystem not ready")
 	}
 	return a.fsHdlr.WriteFile(path, content, false)
 }
 
-// ListDir liste le contenu d'un répertoire du workspace.
+// CreateFile creates a new file (fails if it already exists).
+func (a *App) CreateFile(path, content string) error {
+	if a.fsHdlr == nil {
+		return fmt.Errorf("filesystem not ready")
+	}
+	return a.fsHdlr.CreateFile(path, content)
+}
+
+// DeleteFile deletes a file from the workspace.
+func (a *App) DeleteFile(path string) error {
+	if a.fsHdlr == nil {
+		return fmt.Errorf("filesystem not ready")
+	}
+	return a.fsHdlr.DeleteFile(path)
+}
+
+// ListDir lists the contents of a workspace directory.
 func (a *App) ListDir(path string) ([]filesystem.FileEntry, error) {
 	if a.fsHdlr == nil {
-		return nil, fmt.Errorf("filesystem not initialized")
+		return nil, fmt.Errorf("filesystem not ready")
 	}
 	return a.fsHdlr.ListDir(path)
 }
 
-// SetTheme change le thème de l'IDE.
+// SetTheme dispatches a theme change through the engine.
 func (a *App) SetTheme(themeID string) error {
 	if a.eng == nil {
-		return fmt.Errorf("engine not initialized")
+		return fmt.Errorf("engine not ready")
 	}
 	return a.eng.Dispatch("engine", api.TopicUISetTheme, api.PayloadUITheme{ThemeID: themeID})
 }
 
-// HandleUIInput reçoit les événements utilisateur depuis le JS.
-func (a *App) HandleUIInput(windowID, eventType, dataJSON string) error {
-	if a.eng == nil {
-		return fmt.Errorf("engine not initialized")
+// OpenTab opens a file as an editor tab.
+func (a *App) OpenTab(windowID, filePath, title, language string) error {
+	if a.tabMgr == nil {
+		return fmt.Errorf("tab manager not ready")
 	}
-	var data interface{}
-	if dataJSON != "" {
-		_ = json.Unmarshal([]byte(dataJSON), &data)
-	}
-	return a.eng.Dispatch("engine", api.TopicUIUserInput, api.PayloadUIUserInput{
-		WindowID:  windowID,
-		EventType: eventType,
-		Data:      data,
-	})
+	return a.tabMgr.OpenTab(windowID, filePath, title, language)
 }
 
-// GetConfig retourne la config courante (sans les clés sensibles).
-func (a *App) GetConfig() map[string]any {
-	return map[string]any{
+// SaveWorkspace saves the current UI state to disk.
+func (a *App) SaveWorkspace() error {
+	if a.persist == nil {
+		return fmt.Errorf("persistence not ready")
+	}
+	return a.persist.SaveSync()
+}
+
+// GetConfig returns the current (non-sensitive) configuration.
+func (a *App) GetConfig() map[string]interface{} {
+	return map[string]interface{}{
 		"theme":     a.cfg.UI.DefaultTheme,
 		"provider":  a.cfg.AI.Provider,
 		"model":     a.cfg.AI.ModelID,
@@ -226,20 +297,67 @@ func (a *App) GetConfig() map[string]any {
 	}
 }
 
-// ─────────────────────────────────────────────
-// Proxies internes
-// ─────────────────────────────────────────────
+// EmitEvent lets the frontend dispatch a typed event through the engine.
+// topicStr must be a known topic (see api/events.go).
+// payloadJSON is optional JSON-encoded payload.
+func (a *App) EmitEvent(topicStr, payloadJSON string) error {
+	if a.eng == nil {
+		return fmt.Errorf("engine not ready")
+	}
+	var payload interface{}
+	if payloadJSON != "" {
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
+			return fmt.Errorf("invalid payload JSON: %w", err)
+		}
+	}
+	return a.eng.Dispatch("engine", api.Topic(topicStr), payload)
+}
 
-type appEngineProxy struct{ eng *engine.Engine }
+// ─── Internal helpers ─────────────────────────────────────────────
 
-func (p *appEngineProxy) Subscribe(topic api.Topic, handler func(api.Event)) string {
+// isBindingsGeneration detects the brief Wails process for generating JS bindings.
+func isBindingsGeneration() bool {
+	for _, arg := range os.Args {
+		if strings.Contains(arg, "wailsbindings") || strings.Contains(arg, "bindings") {
+			return true
+		}
+	}
+	return false
+}
+
+func newLogger(level string) *slog.Logger {
+	var lvl slog.Level
+	switch strings.ToLower(level) {
+	case "debug":
+		lvl = slog.LevelDebug
+	case "warn":
+		lvl = slog.LevelWarn
+	case "error":
+		lvl = slog.LevelError
+	default:
+		lvl = slog.LevelInfo
+	}
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+}
+
+// appFSPublisher adapts *engine.Engine to filesystem.EventPublisher.
+type appFSPublisher struct{ eng *engine.Engine }
+
+func (p *appFSPublisher) Subscribe(topic api.Topic, handler func(api.Event)) string {
 	return p.eng.Subscribe(topic, handler)
 }
-func (p *appEngineProxy) Publish(event api.Event) {
+func (p *appFSPublisher) Publish(event api.Event) {
 	_ = p.eng.Dispatch("filesystem", event.Topic, event.Payload)
 }
-func (p *appEngineProxy) Dispatch(moduleID string, topic api.Topic, payload any) error {
+
+// appEngineProxy adapts *engine.Engine to module.Dispatcher + module.Subscriber.
+type appEngineProxy struct{ eng *engine.Engine }
+
+func (p *appEngineProxy) Dispatch(moduleID string, topic api.Topic, payload interface{}) error {
 	return p.eng.Dispatch(moduleID, topic, payload)
+}
+func (p *appEngineProxy) Subscribe(topic api.Topic, handler func(api.Event)) string {
+	return p.eng.Subscribe(topic, handler)
 }
 func (p *appEngineProxy) Unsubscribe(topic api.Topic, subID string) {
 	p.eng.Unsubscribe(topic, subID)

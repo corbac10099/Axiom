@@ -1,5 +1,3 @@
-//go:build wails
-
 package main
 
 import (
@@ -16,7 +14,7 @@ import (
 var assets embed.FS
 
 func main() {
-	axiomApp := NewApp()
+	app := NewApp()
 
 	err := wails.Run(&options.App{
 		Title:  "Axiom IDE",
@@ -26,18 +24,14 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 30, A: 255},
-		OnStartup:        axiomApp.OnStartup,
-		OnShutdown:       axiomApp.OnShutdown,
-		Bind: []interface{}{
-			axiomApp,
-		},
+		OnStartup:        app.OnStartup,
+		OnShutdown:       app.OnShutdown,
+		Bind:             []interface{}{app},
 		Windows: &windows.Options{
-			WebviewIsTransparent:              false,
-			WindowIsTranslucent:               false,
-			DisableWindowIcon:                 false,
-			DisablePinchZoom:                  true,
-			IsZoomControlEnabled:              false,
-			EnableSwipeGestures:               false,
+			DisablePinchZoom:     true,
+			IsZoomControlEnabled: false,
+			WebviewIsTransparent: false,
+			WindowIsTranslucent:  false,
 		},
 	})
 	if err != nil {

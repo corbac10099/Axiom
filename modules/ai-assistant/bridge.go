@@ -9,7 +9,6 @@ import (
 	"github.com/axiom-ide/axiom/api"
 	"github.com/axiom-ide/axiom/core/module"
 	"github.com/axiom-ide/axiom/core/security"
-	"github.com/axiom-ide/axiom/pkg/uid"
 )
 
 // Config est la configuration du module IA.
@@ -107,18 +106,18 @@ func (m *AIAssistantModule) Query(ctx context.Context, userPrompt string, codeCo
 
 	result := parseResponse(rawResponse)
 
+	// FIX: suppression du corrID inutilisé (uid import orphelin supprimé).
+	// Le CorrelationID sera propagé correctement quand BaseModule.Emit
+	// supportera les options d'événement.
 	for _, cmd := range result.Commands {
-		corrID := uid.New()
-		dispatchErr := m.Emit(api.TopicAICommand, api.PayloadAICommand{
+		if dispatchErr := m.Emit(api.TopicAICommand, api.PayloadAICommand{
 			RawCommand:    cmd.Raw,
 			ParsedTopic:   cmd.Topic,
 			ParsedPayload: cmd.Payload,
-		})
-		if dispatchErr != nil {
+		}); dispatchErr != nil {
 			m.Logger().Warn("ai: command dispatch failed",
 				slog.String("command", cmd.Raw),
 				slog.String("error", dispatchErr.Error()),
-				slog.String("correlation_id", corrID),
 			)
 		}
 	}
