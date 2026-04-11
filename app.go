@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 
 	"github.com/axiom-ide/axiom/api"
 	axiomconfig "github.com/axiom-ide/axiom/core/config"
@@ -40,10 +42,30 @@ func NewApp() *App {
 	return &App{logger: slog.Default()}
 }
 
+// isBindingsGeneration détecte si Wails est en train de générer les bindings.
+// Dans ce cas, le binaire est lancé brièvement avec un flag spécial — on doit
+// éviter de démarrer l'engine pour ne pas bloquer le processus.
+func isBindingsGeneration() bool {
+	for _, arg := range os.Args {
+		if strings.Contains(arg, "wailsbindings") ||
+			strings.Contains(arg, "-wailsbindings") ||
+			strings.Contains(arg, "bindings") {
+			return true
+		}
+	}
+	return false
+}
+
 // OnStartup est appelé par Wails v2 après la création de la fenêtre.
 // c est le contexte Wails — OBLIGATOIRE pour runtime.EventsEmit.
 func (a *App) OnStartup(c context.Context) {
 	a.ctx = c
+
+	// ── Guard : skip si génération des bindings ───────────────────
+	if isBindingsGeneration() {
+		a.logger.Info("axiom: bindings generation mode — skipping engine init")
+		return
+	}
 
 	// ── Config ──────────────────────────────────────────────────
 	cfg, warnings := axiomconfig.Load("")
@@ -78,7 +100,6 @@ func (a *App) OnStartup(c context.Context) {
 	a.fsHdlr = fsHdlr
 
 	// ── Wails v2 Adapter ─────────────────────────────────────────
-	// ctx est maintenant disponible → on peut créer l'adapter.
 	adapter := wailsadapter.NewAdapter(c, a.logger)
 	adapter.RegisterBidirectional(eng.Bus())
 	a.adapter = adapter
@@ -180,7 +201,6 @@ func (a *App) SetTheme(themeID string) error {
 }
 
 // HandleUIInput reçoit les événements utilisateur depuis le JS.
-// Alternative aux EventsEmit pour les inputs critiques.
 func (a *App) HandleUIInput(windowID, eventType, dataJSON string) error {
 	if a.eng == nil {
 		return fmt.Errorf("engine not initialized")
